@@ -1,0 +1,406 @@
+{
+  "name": "🔥 Auto Send Hot Leads to CRM [Production EN]",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## 🔥 Auto Send Hot Leads to CRM\n\n### 📋 Description\nThis workflow automatically finds hot leads (with high lead score) and sends them to the CRM system via webhook.\n\n### ⚙️ Configuration\n\n**1. Configure ⚙️ CONFIG: Hot Leads:**\n- `api_key` - API key for CRM webhook authorization\n- `crm_webhook_url` - CRM integration webhook URL (e.g. KommoCRM, Bitrix24)\n- `table_*` - database table names\n- `leads_limit` - maximum number of leads per run\n- `wait_seconds` - pause between sends (to avoid rate limit)\n- `lookback_days` - search leads for the last N days\n\n**2. Configure PostgreSQL credentials** in 🐘 PostgreSQL nodes\n\n**3. Configure schedule** in ⏰ Schedule Trigger node (default: every 15 minutes)\n\n### 📊 Workflow Logic\n1. On schedule, gets CRM settings\n2. Checks if auto-send is enabled\n3. Finds hot leads (score >= min_lead_score from settings)\n4. Sends each lead sequentially via webhook\n5. Logs each send to automation_log\n6. Pauses between sends\n\n### 📝 Required Tables\n- `crm_settings` - CRM settings (auto_send_enabled, min_lead_score, webhook_url)\n- `dialog_analysis` - dialog analysis data\n- `user_contact_data` - user contact information\n- `crm_sent_leads` - sent leads (to exclude duplicates)\n- `automation_log` - automation action log"
+      },
+      "id": "sticky-note-instructions",
+      "name": "📝 Instructions",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -1200,
+        -400
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "config-api-key",
+              "name": "api_key",
+              "value": "24fs-$r4d-defd-77ds-7eds",
+              "type": "string"
+            },
+            {
+              "id": "config-crm-webhook-url",
+              "name": "crm_webhook_url",
+              "value": "http://localhost:5678/webhook/send-to-kommocrm",
+              "type": "string"
+            },
+            {
+              "id": "config-table-crm-settings",
+              "name": "table_crm_settings",
+              "value": "crm_settings",
+              "type": "string"
+            },
+            {
+              "id": "config-table-dialog-analysis",
+              "name": "table_dialog_analysis",
+              "value": "dialog_analysis",
+              "type": "string"
+            },
+            {
+              "id": "config-table-user-contact-data",
+              "name": "table_user_contact_data",
+              "value": "user_contact_data",
+              "type": "string"
+            },
+            {
+              "id": "config-table-webchat-monitoring",
+              "name": "table_webchat_monitoring",
+              "value": "webchat_monitoring",
+              "type": "string"
+            },
+            {
+              "id": "config-table-crm-sent-leads",
+              "name": "table_crm_sent_leads",
+              "value": "crm_sent_leads",
+              "type": "string"
+            },
+            {
+              "id": "config-table-automation-log",
+              "name": "table_automation_log",
+              "value": "automation_log",
+              "type": "string"
+            },
+            {
+              "id": "config-leads-limit",
+              "name": "leads_limit",
+              "value": 10,
+              "type": "number"
+            },
+            {
+              "id": "config-wait-seconds",
+              "name": "wait_seconds",
+              "value": 10,
+              "type": "number"
+            },
+            {
+              "id": "config-lookback-days",
+              "name": "lookback_days",
+              "value": 7,
+              "type": "number"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "config-hot-leads",
+      "name": "⚙️ CONFIG: Hot Leads",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -864,
+        -300
+      ]
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 15
+            }
+          ]
+        }
+      },
+      "id": "1c6a2bb9-bcff-4467-93c0-6a96539b2cba",
+      "name": "⏰ Every 15 minutes",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        -864,
+        -112
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT \n  auto_send_enabled,\n  min_lead_score,\n  webhook_url\nFROM {{ $('⚙️ CONFIG: Hot Leads').first().json.table_crm_settings }} \nWHERE crm_type = 'bitrix24' \nLIMIT 1",
+        "options": {}
+      },
+      "id": "fca26dec-77e6-4029-8999-c916675fc3fa",
+      "name": "🐘 Get CRM Settings",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        -656,
+        -112
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "dPjh4Kdb4nIbCTQG",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "8f7e6d5c-4b3a-2910-1234-567890abcdef",
+              "leftValue": "={{ $json.auto_send_enabled }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "0d878c7b-f9ed-4b0f-968c-5203a70af002",
+      "name": "🔀 Check Auto Send Enabled",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        -464,
+        -112
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT \n  da.session_id,\n  COALESCE((da.lead_scoring::json->>'score')::int, 0) as lead_score,\n  (da.emotional_tone::json->>'satisfaction')::int as satisfaction,\n  ucd.phone,\n  ucd.email,\n  ucd.full_name,\n  wm.platform,\n  wm.message_count\nFROM {{ $('⚙️ CONFIG: Hot Leads').first().json.table_dialog_analysis }} da\nJOIN {{ $('⚙️ CONFIG: Hot Leads').first().json.table_user_contact_data }} ucd ON da.session_id = ucd.session_id\nLEFT JOIN {{ $('⚙️ CONFIG: Hot Leads').first().json.table_webchat_monitoring }} wm ON da.session_id = wm.session_id\nLEFT JOIN {{ $('⚙️ CONFIG: Hot Leads').first().json.table_crm_sent_leads }} csl ON da.session_id = csl.session_id\nWHERE \n  csl.session_id IS NULL -- not sent to CRM\n  AND COALESCE((da.lead_scoring::json->>'score')::int, 0) >= {{ $('🐘 Get CRM Settings').first().json.min_lead_score }}\n  AND (ucd.phone IS NOT NULL OR ucd.email IS NOT NULL) -- has contact info\n  AND da.created_at > NOW() - INTERVAL '{{ $('⚙️ CONFIG: Hot Leads').first().json.lookback_days }} days'\nLIMIT {{ $('⚙️ CONFIG: Hot Leads').first().json.leads_limit }}",
+        "options": {}
+      },
+      "id": "769dc542-5c18-422e-a3a9-9d9aee7afbd1",
+      "name": "🔍 Find Hot Leads",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        -256,
+        -112
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "dPjh4Kdb4nIbCTQG",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "batchSize": 1,
+        "options": {}
+      },
+      "id": "f7ad393d-a332-46e3-be36-94f43ce0418f",
+      "name": "📦 Split in Batches",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 2,
+      "position": [
+        -64,
+        -112
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('⚙️ CONFIG: Hot Leads').first().json.crm_webhook_url }}",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "apiKey",
+              "value": "={{ $('⚙️ CONFIG: Hot Leads').first().json.api_key }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"sessionId\": \"{{ $json.session_id }}\",\n  \"autoSend\": true,\n  \"webhookUrl\": \"{{ $('🐘 Get CRM Settings').first().json.webhook_url }}\"\n}",
+        "options": {}
+      },
+      "id": "344a0060-5e5b-4b42-9730-684d84f5cb94",
+      "name": "📤 Send to CRM",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        144,
+        -128
+      ],
+      "retryOnFail": true,
+      "maxTries": 2,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO {{ $('⚙️ CONFIG: Hot Leads').first().json.table_automation_log }} (\n  action_type,\n  session_id,\n  details,\n  created_at\n) VALUES (\n  'auto_crm_send',\n  '{{ $('📤 Send to CRM').item.json.sessionId }}',\n  '{{ JSON.stringify($json) }}'::jsonb,\n  NOW()\n)",
+        "options": {}
+      },
+      "id": "68143af6-e9a5-49e0-90b2-7fbf3e7e905f",
+      "name": "📋 Log Action",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        352,
+        -128
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "dPjh4Kdb4nIbCTQG",
+          "name": "Postgres account"
+        }
+      },
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "amount": "={{ $('⚙️ CONFIG: Hot Leads').first().json.wait_seconds }}",
+        "unit": "seconds"
+      },
+      "id": "337a4cd5-4a94-4be7-a917-7c9807813150",
+      "name": "⏳ Wait Between Sends",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1,
+      "position": [
+        544,
+        -128
+      ],
+      "webhookId": "wait-webhook"
+    },
+    {
+      "parameters": {},
+      "id": "a4870c4f-4a43-4275-a999-7476ded75b6e",
+      "name": "🛑 Stop (Auto Send Disabled)",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        -256,
+        64
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "⏰ Every 15 minutes": {
+      "main": [
+        [
+          {
+            "node": "⚙️ CONFIG: Hot Leads",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "⚙️ CONFIG: Hot Leads": {
+      "main": [
+        [
+          {
+            "node": "🐘 Get CRM Settings",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "🐘 Get CRM Settings": {
+      "main": [
+        [
+          {
+            "node": "🔀 Check Auto Send Enabled",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "🔀 Check Auto Send Enabled": {
+      "main": [
+        [
+          {
+            "node": "🔍 Find Hot Leads",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "🛑 Stop (Auto Send Disabled)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "🔍 Find Hot Leads": {
+      "main": [
+        [
+          {
+            "node": "📦 Split in Batches",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "📦 Split in Batches": {
+      "main": [
+        [
+          {
+            "node": "📤 Send to CRM",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "📤 Send to CRM": {
+      "main": [
+        [
+          {
+            "node": "📋 Log Action",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "📋 Log Action": {
+      "main": [
+        [
+          {
+            "node": "⏳ Wait Between Sends",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "⏳ Wait Between Sends": {
+      "main": [
+        [
+          {
+            "node": "📦 Split in Batches",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "a3946a71-e0bb-4310-bae4-a0b02048d037-en",
+  "meta": {
+    "instanceId": "9a2a948e1b1119e76dce477f4f08641c41898f344f4216cb90098437b1dcaf00"
+  },
+  "id": "Ar0GfiOsniVchXWb-en",
+  "tags": []
+}
