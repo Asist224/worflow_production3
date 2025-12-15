@@ -1,0 +1,525 @@
+{
+  "name": "💾 Dialog Analysis Storage [Production EN]",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## 💾 Dialog Analysis Storage\n\n### 📋 Description\nAPI for storing and retrieving dialog analyses.\n\n---\n\n### ⚙️ CONFIG\n\n| Parameter | Description |\n|-----------|-------------|\n| `api_key` | API key |\n| `table_dialog_analysis` | Analyses table |\n\n---\n\n### 📥 Endpoints\n\n**Get analysis:**\n```\nGET /webhook/get-analysis?apiKey=KEY&session_id=xxx&type=single\n```\n\n**Get all analyses:**\n```\nGET /webhook/get-all-analysis?apiKey=KEY\n```",
+        "height": 620,
+        "width": 616,
+        "color": 5
+      },
+      "id": "edbc95bc-8a28-4284-a4c3-597271a4ae57",
+      "name": "📝 Instructions",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -9408,
+        -1504
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "api-key",
+              "name": "api_key",
+              "value": "24fs-$r4d-defd-77ds-7eds",
+              "type": "string"
+            },
+            {
+              "id": "rate-window",
+              "name": "rate_limit_window_ms",
+              "value": 60000,
+              "type": "number"
+            },
+            {
+              "id": "rate-max",
+              "name": "rate_limit_max_requests",
+              "value": 60,
+              "type": "number"
+            },
+            {
+              "id": "table-analysis",
+              "name": "table_dialog_analysis",
+              "value": "dialog_analysis",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "51b538fa-24cf-4dc1-8ac9-b534ca4d779c",
+      "name": "⚙️ CONFIG: Get",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -8528,
+        -1456
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "api-key",
+              "name": "api_key",
+              "value": "24fs-$r4d-defd-77ds-7eds",
+              "type": "string"
+            },
+            {
+              "id": "rate-window",
+              "name": "rate_limit_window_ms",
+              "value": 60000,
+              "type": "number"
+            },
+            {
+              "id": "rate-max",
+              "name": "rate_limit_max_requests",
+              "value": 60,
+              "type": "number"
+            },
+            {
+              "id": "table-analysis",
+              "name": "table_dialog_analysis",
+              "value": "dialog_analysis",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "94b7e182-01a7-4ade-b304-7dc1135c42a4",
+      "name": "⚙️ CONFIG: Get All",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -8528,
+        -1120
+      ]
+    },
+    {
+      "parameters": {
+        "path": "get-analysis",
+        "responseMode": "responseNode",
+        "options": {
+          "allowedOrigins": "*"
+        }
+      },
+      "id": "b864d5d5-f04f-4623-9592-70cab9b47def",
+      "name": "🌐 Webhook: Get",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        -8720,
+        -1456
+      ],
+      "webhookId": "get-analysis-webhook"
+    },
+    {
+      "parameters": {
+        "jsCode": "// ═══════════════════════════════════════════════════════════════\n// 🔐 Security Check\n// ═══════════════════════════════════════════════════════════════\n\nconst config = $('⚙️ CONFIG: Get').first().json;\nconst API_KEY = config.api_key;\nconst RATE_LIMIT_WINDOW_MS = config.rate_limit_window_ms;\nconst RATE_LIMIT_MAX_REQUESTS = config.rate_limit_max_requests;\n\nconst inputData = $('🌐 Webhook: Get').item.json;\nconst body = inputData.body || {};\nconst headers = inputData.headers || {};\nconst query = inputData.query || {};\nconst clientIP = headers['x-real-ip'] || headers['x-forwarded-for'] || headers['cf-connecting-ip'] || 'unknown';\nconst now = Date.now();\n\nconst staticData = $getWorkflowStaticData('global');\nif (!staticData.rateLimits) { staticData.rateLimits = {}; }\nfor (const ip in staticData.rateLimits) {\n  if (now - staticData.rateLimits[ip].firstRequest > RATE_LIMIT_WINDOW_MS) { delete staticData.rateLimits[ip]; }\n}\nif (!staticData.rateLimits[clientIP]) {\n  staticData.rateLimits[clientIP] = { count: 1, firstRequest: now };\n} else {\n  staticData.rateLimits[clientIP].count++;\n  if (staticData.rateLimits[clientIP].count > RATE_LIMIT_MAX_REQUESTS) {\n    return [{ json: { ...inputData, authorized: false, error: { success: false, error: 'Too many requests', status: 429 } } }];\n  }\n}\n\nconst providedKey = headers['x-api-key'] || body.apiKey || query.apiKey || '';\nif (!providedKey) { return [{ json: { ...inputData, authorized: false, error: { success: false, error: 'API key not provided', status: 401 } } }]; }\nif (providedKey !== API_KEY) { return [{ json: { ...inputData, authorized: false, error: { success: false, error: 'Invalid API key', status: 401 } } }]; }\n\nreturn [{ json: { ...inputData, authorized: true } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -8336,
+        -1456
+      ],
+      "id": "958236f1-401d-415d-8a4d-0dee26c2c776",
+      "name": "🔐 Security Check (Get)"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "auth-condition",
+              "leftValue": "={{ $json.authorized }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -8160,
+        -1456
+      ],
+      "id": "237da6be-817a-42a2-a78b-80155ba15820",
+      "name": "❓ Auth Check (Get)"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT * FROM {{ $('⚙️ CONFIG: Get').first().json.table_dialog_analysis }} WHERE session_id = '{{ $json.query.session_id }}' AND analysis_type = '{{ $json.query.type || 'single' }}' ORDER BY created_at DESC LIMIT 1",
+        "options": {}
+      },
+      "id": "0b8f71d5-b2a7-4096-a16e-5c4a26679410",
+      "name": "🐘 Get Analysis",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        -7984,
+        -1456
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "dPjh4Kdb4nIbCTQG",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// ═══════════════════════════════════════════════════════════════\n// 📊 Format response\n// ═══════════════════════════════════════════════════════════════\n\nconst data = items[0]?.json;\nif (!data || !data.session_id) {\n  return [{json: {found: false}}];\n}\nreturn [{\n  json: {\n    found: true,\n    sessionId: data.session_id,\n    userName: data.user_name,\n    analysisType: data.analysis_type,\n    language: data.language,\n    emotionalTone: data.emotional_tone,\n    customerNeeds: data.customer_needs,\n    missedOpportunities: data.missed_opportunities,\n    recommendations: data.recommendations,\n    statistics: data.statistics,\n    satisfactionPercentage: data.satisfaction_percentage,\n    leadScoring: data.lead_scoring,\n    bantQualification: data.bant_qualification,\n    createdAt: data.created_at\n  }\n}];"
+      },
+      "id": "420c8b5e-ec34-4aea-a027-aa1e5ad39360",
+      "name": "📊 Format Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -7792,
+        -1456
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {}
+      },
+      "id": "e3b052af-b3c5-4737-8b93-d84d2ba83a2f",
+      "name": "✅ Respond Get",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        -7600,
+        -1456
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json.error }}",
+        "options": {
+          "responseCode": "={{ $json.error.status }}"
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        -7984,
+        -1296
+      ],
+      "id": "50d5496c-f635-40e4-87d5-34fde9e6a51b",
+      "name": "❌ Error Response (Get)"
+    },
+    {
+      "parameters": {
+        "path": "get-all-analysis",
+        "responseMode": "responseNode",
+        "options": {
+          "allowedOrigins": "*"
+        }
+      },
+      "id": "1f9515ad-0f47-4923-8633-a74b7386aca4",
+      "name": "🌐 Webhook: Get All",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        -8720,
+        -1120
+      ],
+      "webhookId": "get-all-analysis-webhook"
+    },
+    {
+      "parameters": {
+        "jsCode": "// ═══════════════════════════════════════════════════════════════\n// 🔐 Security Check\n// ═══════════════════════════════════════════════════════════════\n\nconst config = $('⚙️ CONFIG: Get All').first().json;\nconst API_KEY = config.api_key;\nconst RATE_LIMIT_WINDOW_MS = config.rate_limit_window_ms;\nconst RATE_LIMIT_MAX_REQUESTS = config.rate_limit_max_requests;\n\nconst inputData = $('🌐 Webhook: Get All').item.json;\nconst body = inputData.body || {};\nconst headers = inputData.headers || {};\nconst query = inputData.query || {};\nconst clientIP = headers['x-real-ip'] || headers['x-forwarded-for'] || headers['cf-connecting-ip'] || 'unknown';\nconst now = Date.now();\n\nconst staticData = $getWorkflowStaticData('global');\nif (!staticData.rateLimits) { staticData.rateLimits = {}; }\nfor (const ip in staticData.rateLimits) {\n  if (now - staticData.rateLimits[ip].firstRequest > RATE_LIMIT_WINDOW_MS) { delete staticData.rateLimits[ip]; }\n}\nif (!staticData.rateLimits[clientIP]) {\n  staticData.rateLimits[clientIP] = { count: 1, firstRequest: now };\n} else {\n  staticData.rateLimits[clientIP].count++;\n  if (staticData.rateLimits[clientIP].count > RATE_LIMIT_MAX_REQUESTS) {\n    return [{ json: { ...inputData, authorized: false, error: { success: false, error: 'Too many requests', status: 429 } } }];\n  }\n}\n\nconst providedKey = headers['x-api-key'] || body.apiKey || query.apiKey || '';\nif (!providedKey) { return [{ json: { ...inputData, authorized: false, error: { success: false, error: 'API key not provided', status: 401 } } }]; }\nif (providedKey !== API_KEY) { return [{ json: { ...inputData, authorized: false, error: { success: false, error: 'Invalid API key', status: 401 } } }]; }\n\nreturn [{ json: { ...inputData, authorized: true } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -8336,
+        -1120
+      ],
+      "id": "ab20dae4-05d8-4959-8ac5-d652918bb609",
+      "name": "🔐 Security Check (Get All)"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "auth-condition",
+              "leftValue": "={{ $json.authorized }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -8160,
+        -1120
+      ],
+      "id": "27b1df5d-19a5-403c-a14b-e07dcf06d722",
+      "name": "❓ Auth Check (Get All)"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT DISTINCT ON (session_id) * FROM {{ $('⚙️ CONFIG: Get All').first().json.table_dialog_analysis }} WHERE analysis_type = 'single' ORDER BY session_id, created_at DESC",
+        "options": {}
+      },
+      "id": "78dc8664-c93c-4119-bb6f-777528a53484",
+      "name": "🐘 Get All Analysis",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        -7984,
+        -1120
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "dPjh4Kdb4nIbCTQG",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// ═══════════════════════════════════════════════════════════════\n// 📊 Format all analyses\n// ═══════════════════════════════════════════════════════════════\n\nconst analyses = {};\nitems.forEach(item => {\n  const data = item.json;\n  analyses[data.session_id] = {\n    emotionalTone: data.emotional_tone,\n    satisfactionPercentage: data.satisfaction_percentage,\n    leadScoring: data.lead_scoring,\n    bantQualification: data.bant_qualification,\n    createdAt: data.created_at\n  };\n});\nreturn [{json: {analyses}}];"
+      },
+      "id": "eaa5ad7b-18ec-4cd3-a799-58f9158ca728",
+      "name": "📊 Format All Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -7792,
+        -1120
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {}
+      },
+      "id": "b0dd0d4c-5100-48cb-a699-4cc684967f41",
+      "name": "✅ Respond Get All",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        -7600,
+        -1120
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json.error }}",
+        "options": {
+          "responseCode": "={{ $json.error.status }}"
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        -7984,
+        -960
+      ],
+      "id": "49798f52-881e-4e5f-a34e-ae848bf0683e",
+      "name": "❌ Error Response (Get All)"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "🌐 Webhook: Get": {
+      "main": [
+        [
+          {
+            "node": "⚙️ CONFIG: Get",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "⚙️ CONFIG: Get": {
+      "main": [
+        [
+          {
+            "node": "🔐 Security Check (Get)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "🔐 Security Check (Get)": {
+      "main": [
+        [
+          {
+            "node": "❓ Auth Check (Get)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "❓ Auth Check (Get)": {
+      "main": [
+        [
+          {
+            "node": "🐘 Get Analysis",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "❌ Error Response (Get)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "🐘 Get Analysis": {
+      "main": [
+        [
+          {
+            "node": "📊 Format Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "📊 Format Response": {
+      "main": [
+        [
+          {
+            "node": "✅ Respond Get",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "🌐 Webhook: Get All": {
+      "main": [
+        [
+          {
+            "node": "⚙️ CONFIG: Get All",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "⚙️ CONFIG: Get All": {
+      "main": [
+        [
+          {
+            "node": "🔐 Security Check (Get All)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "🔐 Security Check (Get All)": {
+      "main": [
+        [
+          {
+            "node": "❓ Auth Check (Get All)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "❓ Auth Check (Get All)": {
+      "main": [
+        [
+          {
+            "node": "🐘 Get All Analysis",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "❌ Error Response (Get All)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "🐘 Get All Analysis": {
+      "main": [
+        [
+          {
+            "node": "📊 Format All Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "📊 Format All Response": {
+      "main": [
+        [
+          {
+            "node": "✅ Respond Get All",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "1288083a-48c8-46ee-9396-d27e21dc79f8",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "9a2a948e1b1119e76dce477f4f08641c41898f344f4216cb90098437b1dcaf00"
+  },
+  "id": "kwbiltkxVdA5HWbR",
+  "tags": []
+}
