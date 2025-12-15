@@ -1,0 +1,1292 @@
+{
+  "name": "📋 GDPR Consent Management [Production EN]",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## 📋 GDPR Consent Management\n\n### 📋 Description\nComprehensive GDPR consent management system with full audit trail.\n\n---\n\n### ⚙️ Configuration\n\nEach chain has its own CONFIG node with settings:\n\n| Parameter | Description |\n|-----------|-------------|\n| `api_key` | API key for authorization |\n| `rate_limit_window_ms` | Rate limit window (ms) |\n| `rate_limit_max_requests` | Max requests per window |\n| `table_*` | Database table names |\n\n---\n\n### 📥 Endpoints\n\n**1. Record Consent (Art. 7):**\n```\nPOST /webhook/gdpr-consent\n```\n\n**2. Revoke Consent (Art. 7(3)):**\n```\nPOST /webhook/consent-revoke\n```\n\n**3. Data Access (Art. 15):**\n```\nPOST /webhook/gdpr-data-access\n```\n\n**4. Data Export (Art. 20):**\n```\nPOST /webhook/gdpr-data-export\n```\n\n**5. Data Erasure (Art. 17):**\n```\nPOST /webhook/delete-session-gdpr\n```\n\n**6. PreChat Form:**\n```\nPOST /webhook/prechat-form\n```\n\n---\n\n### 🔐 Authorization\nAll requests require API key:\n- Header: `x-api-key`\n- Body: `apiKey`\n- Query: `?apiKey=`",
+        "height": 980,
+        "width": 520,
+        "color": 5
+      },
+      "id": "sticky-note-instructions",
+      "name": "📝 Instructions",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [-1200, -1200]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "gdpr-consent",
+        "responseMode": "responseNode",
+        "options": {
+          "allowedOrigins": "*"
+        }
+      },
+      "id": "webhook-consent",
+      "name": "🌐 Webhook: Consent",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [-720, -672],
+      "webhookId": "b49ee8a7-fd41-4672-8541-1f6ef5c3d1b0"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "api-key",
+              "name": "api_key",
+              "value": "YOUR_API_KEY_HERE",
+              "type": "string"
+            },
+            {
+              "id": "rate-window",
+              "name": "rate_limit_window_ms",
+              "value": 60000,
+              "type": "number"
+            },
+            {
+              "id": "rate-max",
+              "name": "rate_limit_max_requests",
+              "value": 60,
+              "type": "number"
+            },
+            {
+              "id": "table-consents",
+              "name": "table_gdpr_consents",
+              "value": "gdpr_consents",
+              "type": "string"
+            },
+            {
+              "id": "table-audit",
+              "name": "table_gdpr_audit_log",
+              "value": "gdpr_audit_log",
+              "type": "string"
+            },
+            {
+              "id": "table-prechat",
+              "name": "table_prechat_submissions",
+              "value": "prechat_submissions",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "config-consent",
+      "name": "⚙️ CONFIG: Consent",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [-528, -672]
+    },
+    {
+      "parameters": {
+        "jsCode": "// ═══════════════════════════════════════════════════════════════\n// 🔐 Security Check\n// ═══════════════════════════════════════════════════════════════\n\nconst config = $('⚙️ CONFIG: Consent').first().json;\nconst API_KEY = config.api_key;\nconst RATE_LIMIT_WINDOW_MS = config.rate_limit_window_ms;\nconst RATE_LIMIT_MAX_REQUESTS = config.rate_limit_max_requests;\n\nconst inputData = $('🌐 Webhook: Consent').item.json;\nconst body = inputData.body || {};\nconst headers = inputData.headers || {};\nconst query = inputData.query || {};\nconst clientIP = headers['x-real-ip'] || headers['x-forwarded-for'] || headers['cf-connecting-ip'] || 'unknown';\nconst now = Date.now();\n\nconst staticData = $getWorkflowStaticData('global');\nif (!staticData.rateLimits) { staticData.rateLimits = {}; }\nfor (const ip in staticData.rateLimits) {\n  if (now - staticData.rateLimits[ip].firstRequest > RATE_LIMIT_WINDOW_MS) {\n    delete staticData.rateLimits[ip];\n  }\n}\nif (!staticData.rateLimits[clientIP]) {\n  staticData.rateLimits[clientIP] = { count: 1, firstRequest: now };\n} else {\n  staticData.rateLimits[clientIP].count++;\n  if (staticData.rateLimits[clientIP].count > RATE_LIMIT_MAX_REQUESTS) {\n    return [{ json: { ...inputData, authorized: false, error: { success: false, error: 'Too many requests', details: `Limit: ${RATE_LIMIT_MAX_REQUESTS} requests per minute`, status: 429, retryAfter: Math.ceil((staticData.rateLimits[clientIP].firstRequest + RATE_LIMIT_WINDOW_MS - now) / 1000) } } }];\n  }\n}\n\nconst providedKey = headers['x-api-key'] || body.apiKey || query.apiKey || '';\nif (!providedKey) {\n  return [{ json: { ...inputData, authorized: false, error: { success: false, error: 'API key not provided', status: 401 } } }];\n}\nif (providedKey !== API_KEY) {\n  return [{ json: { ...inputData, authorized: false, error: { success: false, error: 'Invalid API key', status: 401 } } }];\n}\n\nreturn [{ json: { ...inputData, authorized: true } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-336, -672],
+      "id": "security-check-consent",
+      "name": "🔐 Security Check (Consent)"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "auth-condition",
+              "leftValue": "={{ $json.authorized }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [-144, -672],
+      "id": "auth-check-consent",
+      "name": "❓ Auth Check (Consent)"
+    },
+    {
+      "parameters": {
+        "jsCode": "// ═══════════════════════════════════════════════════════════════\n// 📝 Transform consent data\n// ═══════════════════════════════════════════════════════════════\n\nconst webhookData = items[0].json;\nconst body = webhookData.body || webhookData;\n\nconst action = body.action || body.accepted;\nconst consentGiven = action === 'accepted' || action === true;\nconst isActive = body.is_active !== undefined ? body.is_active : consentGiven;\n\nconst sessionId = body.sessionId || body.session_id;\nconst userEmail = body.userEmail || body.userData?.email || null;\nconst consentType = body.type || body.consentType || 'general';\nconst privacyPolicyVersion = String(body.privacyPolicyVersion || body.privacy_policy_version || '1.0');\nconst domain = body.domain || webhookData.headers?.origin || '';\n\nconst purpose = body.purpose || 'lead_qualification';\nconst legalBasis = body.legalBasis || body.legal_basis || 'consent';\nconst controller = body.controller || domain;\n\nconst ipAddress = webhookData.headers?.['x-forwarded-for'] || webhookData.headers?.['x-real-ip'] || null;\nconst userAgent = webhookData.headers?.['user-agent'] || null;\n\nconst expiresAt = body.expiresAt || new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString();\n\nif (!sessionId) {\n    throw new Error('sessionId is required');\n}\n\nreturn [{\n    json: {\n        session_id: sessionId,\n        user_email: userEmail,\n        consent_given: consentGiven,\n        consent_type: consentType,\n        privacy_policy_version: privacyPolicyVersion,\n        ip_address: ipAddress,\n        user_agent: userAgent,\n        domain: domain,\n        expires_at: expiresAt,\n        is_active: isActive,\n        purpose: purpose,\n        legal_basis: legalBasis,\n        controller: controller,\n        action_type: consentGiven ? 'consent_given' : 'consent_declined'\n    }\n}];"
+      },
+      "id": "transform-consent",
+      "name": "📝 Transform Consent Data",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [48, -736]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO {{ $('⚙️ CONFIG: Consent').first().json.table_gdpr_consents }} (\n    session_id,\n    user_email,\n    consent_given,\n    consent_type,\n    privacy_policy_version,\n    ip_address,\n    user_agent,\n    domain,\n    expires_at,\n    is_active\n) VALUES (\n    '{{ $json.session_id }}',\n    {{ $json.user_email ? \"'\" + $json.user_email + \"'\" : 'NULL' }},\n    {{ $json.consent_given }},\n    '{{ $json.consent_type }}',\n    '{{ $json.privacy_policy_version }}',\n    {{ $json.ip_address ? \"'\" + $json.ip_address + \"'\" : 'NULL' }},\n    {{ $json.user_agent ? \"'\" + $json.user_agent.replace(/'/g, \"''\") + \"'\" : 'NULL' }},\n    '{{ $json.domain }}',\n    '{{ $json.expires_at }}'::timestamp,\n    {{ $json.is_active }}\n)\nON CONFLICT (session_id, consent_type) DO UPDATE SET\n    user_email = EXCLUDED.user_email,\n    consent_given = EXCLUDED.consent_given,\n    privacy_policy_version = EXCLUDED.privacy_policy_version,\n    ip_address = EXCLUDED.ip_address,\n    user_agent = EXCLUDED.user_agent,\n    domain = EXCLUDED.domain,\n    expires_at = EXCLUDED.expires_at,\n    is_active = EXCLUDED.is_active,\n    revoked_at = NULL,\n    revoke_reason = NULL,\n    revoke_ip = NULL\nRETURNING id, session_id, consent_given, created_at;",
+        "options": {}
+      },
+      "id": "save-consent",
+      "name": "🐘 Save Consent",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [272, -736],
+      "credentials": {
+        "postgres": {
+          "id": "dPjh4Kdb4nIbCTQG",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// ═══════════════════════════════════════════════════════════════\n// 📋 Prepare data for Audit Log\n// ═══════════════════════════════════════════════════════════════\n\nconst transformData = $('📝 Transform Consent Data').first().json;\nconst saveResult = $('🐘 Save Consent').first().json || {};\n\nconst details = JSON.stringify({\n    consent_given: transformData.consent_given,\n    consent_type: transformData.consent_type,\n    version: transformData.privacy_policy_version\n});\n\nreturn [{\n    json: {\n        session_id: transformData.session_id,\n        action: transformData.action_type,\n        details: details,\n        ip_address: transformData.ip_address,\n        user_agent: transformData.user_agent,\n        domain: transformData.domain,\n        purpose: transformData.purpose,\n        legal_basis: transformData.legal_basis,\n        controller: transformData.controller,\n        privacy_policy_version: transformData.privacy_policy_version,\n        consent_id: saveResult.id || null,\n        consent_given: transformData.consent_given,\n        consent_type: transformData.consent_type,\n        created_at: saveResult.created_at || new Date().toISOString()\n    }\n}];"
+      },
+      "id": "prepare-audit-consent",
+      "name": "📋 Prepare Audit (Consent)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [496, -736]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO {{ $('⚙️ CONFIG: Consent').first().json.table_gdpr_audit_log }} (\n    session_id,\n    action,\n    details,\n    ip_address,\n    user_agent,\n    domain,\n    purpose,\n    legal_basis,\n    controller,\n    data_categories,\n    privacy_policy_version\n) VALUES (\n    '{{ $json.session_id }}',\n    '{{ $json.action }}',\n    '{{ $json.details.replace(/'/g, \"''\") }}',\n    {{ $json.ip_address ? \"'\" + $json.ip_address + \"'\" : 'NULL' }},\n    {{ $json.user_agent ? \"'\" + $json.user_agent.replace(/'/g, \"''\") + \"'\" : 'NULL' }},\n    '{{ $json.domain }}',\n    '{{ $json.purpose }}',\n    '{{ $json.legal_basis }}',\n    '{{ $json.controller }}',\n    ARRAY['session_id', 'consent_preferences'],\n    '{{ $json.privacy_policy_version }}'\n)\nRETURNING id;",
+        "options": {}
+      },
+      "id": "audit-log-consent",
+      "name": "📋 Audit Log (Consent)",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [720, -736],
+      "credentials": {
+        "postgres": {
+          "id": "dPjh4Kdb4nIbCTQG",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT EXISTS(\n    SELECT 1 FROM {{ $('⚙️ CONFIG: Consent').first().json.table_prechat_submissions }} \n    WHERE session_id = '{{ $('📋 Prepare Audit (Consent)').first().json.session_id }}'\n) as has_prechat_data;",
+        "options": {}
+      },
+      "id": "check-prechat",
+      "name": "🔍 Check PreChat Data",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [944, -736],
+      "credentials": {
+        "postgres": {
+          "id": "dPjh4Kdb4nIbCTQG",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// ═══════════════════════════════════════════════════════════════\n// ✅ Prepare response\n// ═══════════════════════════════════════════════════════════════\n\nconst auditData = $('📋 Prepare Audit (Consent)').first().json;\nconst preChatCheck = items[0]?.json || {};\n\nreturn [{\n    json: {\n        success: true,\n        message: 'Consent recorded successfully',\n        data: {\n            consentId: auditData.consent_id,\n            sessionId: auditData.session_id,\n            consentGiven: auditData.consent_given,\n            consentType: auditData.consent_type,\n            timestamp: auditData.created_at,\n            hasPreChatData: preChatCheck.has_prechat_data === true\n        }\n    }\n}];"
+      },
+      "id": "prepare-response-consent",
+      "name": "✅ Prepare Response (Consent)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1168, -736]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "X-GDPR-Consent",
+                "value": "recorded"
+              }
+            ]
+          }
+        }
+      },
+      "id": "respond-consent",
+      "name": "📤 Respond (Consent)",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [1392, -736]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json.error }}",
+        "options": {
+          "responseCode": "={{ $json.error.status }}"
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [48, -560],
+      "id": "error-response-consent",
+      "name": "❌ Error (Consent)"
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "consent-revoke",
+        "responseMode": "responseNode",
+        "options": {
+          "allowedOrigins": "*"
+        }
+      },
+      "id": "webhook-revoke",
+      "name": "🌐 Webhook: Revoke",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [-720, -176],
+      "webhookId": "c8d7e6f5-4a3b-2c1d-0e9f-8g7h6i5j4k3l"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "api-key",
+              "name": "api_key",
+              "value": "YOUR_API_KEY_HERE",
+              "type": "string"
+            },
+            {
+              "id": "rate-window",
+              "name": "rate_limit_window_ms",
+              "value": 60000,
+              "type": "number"
+            },
+            {
+              "id": "rate-max",
+              "name": "rate_limit_max_requests",
+              "value": 60,
+              "type": "number"
+            },
+            {
+              "id": "table-consents",
+              "name": "table_gdpr_consents",
+              "value": "gdpr_consents",
+              "type": "string"
+            },
+            {
+              "id": "table-audit",
+              "name": "table_gdpr_audit_log",
+              "value": "gdpr_audit_log",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "config-revoke",
+      "name": "⚙️ CONFIG: Revoke",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [-528, -176]
+    },
+    {
+      "parameters": {
+        "jsCode": "// ═══════════════════════════════════════════════════════════════\n// 🔐 Security Check\n// ═══════════════════════════════════════════════════════════════\n\nconst config = $('⚙️ CONFIG: Revoke').first().json;\nconst API_KEY = config.api_key;\nconst RATE_LIMIT_WINDOW_MS = config.rate_limit_window_ms;\nconst RATE_LIMIT_MAX_REQUESTS = config.rate_limit_max_requests;\n\nconst inputData = $('🌐 Webhook: Revoke').item.json;\nconst body = inputData.body || {};\nconst headers = inputData.headers || {};\nconst query = inputData.query || {};\nconst clientIP = headers['x-real-ip'] || headers['x-forwarded-for'] || headers['cf-connecting-ip'] || 'unknown';\nconst now = Date.now();\n\nconst staticData = $getWorkflowStaticData('global');\nif (!staticData.rateLimits) { staticData.rateLimits = {}; }\nfor (const ip in staticData.rateLimits) {\n  if (now - staticData.rateLimits[ip].firstRequest > RATE_LIMIT_WINDOW_MS) {\n    delete staticData.rateLimits[ip];\n  }\n}\nif (!staticData.rateLimits[clientIP]) {\n  staticData.rateLimits[clientIP] = { count: 1, firstRequest: now };\n} else {\n  staticData.rateLimits[clientIP].count++;\n  if (staticData.rateLimits[clientIP].count > RATE_LIMIT_MAX_REQUESTS) {\n    return [{ json: { ...inputData, authorized: false, error: { success: false, error: 'Too many requests', details: `Limit: ${RATE_LIMIT_MAX_REQUESTS} requests per minute`, status: 429, retryAfter: Math.ceil((staticData.rateLimits[clientIP].firstRequest + RATE_LIMIT_WINDOW_MS - now) / 1000) } } }];\n  }\n}\n\nconst providedKey = headers['x-api-key'] || body.apiKey || query.apiKey || '';\nif (!providedKey) {\n  return [{ json: { ...inputData, authorized: false, error: { success: false, error: 'API key not provided', status: 401 } } }];\n}\nif (providedKey !== API_KEY) {\n  return [{ json: { ...inputData, authorized: false, error: { success: false, error: 'Invalid API key', status: 401 } } }];\n}\n\nreturn [{ json: { ...inputData, authorized: true } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-336, -176],
+      "id": "security-check-revoke",
+      "name": "🔐 Security Check (Revoke)"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "auth-condition",
+              "leftValue": "={{ $json.authorized }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [-144, -176],
+      "id": "auth-check-revoke",
+      "name": "❓ Auth Check (Revoke)"
+    },
+    {
+      "parameters": {
+        "jsCode": "// ═══════════════════════════════════════════════════════════════\n// 📝 Transform revoke data\n// ═══════════════════════════════════════════════════════════════\n\nconst webhookData = items[0].json;\nconst body = webhookData.body || webhookData;\n\nconst sessionId = body.sessionId || body.session_id;\nconst userEmail = body.userEmail || body.email || null;\nconst reason = body.reason || 'user_request';\nconst deleteData = body.deleteData || body.delete_data || false;\nconst domain = body.domain || webhookData.headers?.origin || '';\n\nconst ipAddress = webhookData.headers?.['x-forwarded-for'] || webhookData.headers?.['x-real-ip'] || null;\nconst userAgent = webhookData.headers?.['user-agent'] || null;\n\nif (!sessionId) {\n    throw new Error('sessionId is required');\n}\n\nreturn [{\n    json: {\n        session_id: sessionId,\n        user_email: userEmail,\n        reason: reason,\n        delete_data: deleteData,\n        ip_address: ipAddress,\n        user_agent: userAgent,\n        domain: domain,\n        revoked_at: new Date().toISOString()\n    }\n}];"
+      },
+      "id": "transform-revoke",
+      "name": "📝 Transform Revoke Data",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [48, -240]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "UPDATE {{ $('⚙️ CONFIG: Revoke').first().json.table_gdpr_consents }}\nSET \n    is_active = false,\n    revoked_at = NOW(),\n    revoke_reason = '{{ $json.reason }}',\n    revoke_ip = {{ $json.ip_address ? \"'\" + $json.ip_address + \"'\" : 'NULL' }}\nWHERE session_id = '{{ $json.session_id }}'\n    AND is_active = true\nRETURNING id, session_id, consent_type, revoked_at;",
+        "options": {}
+      },
+      "id": "revoke-consent-db",
+      "name": "🐘 Revoke Consent",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [272, -240],
+      "credentials": {
+        "postgres": {
+          "id": "dPjh4Kdb4nIbCTQG",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// ═══════════════════════════════════════════════════════════════\n// 📋 Prepare data for Audit Log\n// ═══════════════════════════════════════════════════════════════\n\nconst transformedData = $('📝 Transform Revoke Data').first().json;\nconst revokedConsents = $('🐘 Revoke Consent').all();\nconst revokedCount = revokedConsents.length;\n\nconst details = JSON.stringify({\n    reason: transformedData.reason,\n    revokedCount: revokedCount,\n    deleteDataRequested: transformedData.delete_data,\n    gdpr_article: \"Art. 7(3) - Right to Withdraw Consent\"\n});\n\nreturn [{\n    json: {\n        session_id: transformedData.session_id,\n        action: 'consent_revoked',\n        details: details,\n        ip_address: transformedData.ip_address,\n        user_agent: transformedData.user_agent,\n        domain: transformedData.domain,\n        purpose: 'consent_withdrawal',\n        legal_basis: 'consent',\n        controller: transformedData.domain,\n        revoked_count: revokedCount\n    }\n}];"
+      },
+      "id": "prepare-audit-revoke",
+      "name": "📋 Prepare Audit (Revoke)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [496, -240]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO {{ $('⚙️ CONFIG: Revoke').first().json.table_gdpr_audit_log }} (\n    session_id,\n    action,\n    details,\n    ip_address,\n    user_agent,\n    domain,\n    purpose,\n    legal_basis,\n    controller,\n    data_categories\n) VALUES (\n    '{{ $json.session_id }}',\n    '{{ $json.action }}',\n    '{{ $json.details.replace(/'/g, \"''\") }}',\n    {{ $json.ip_address ? \"'\" + $json.ip_address + \"'\" : 'NULL' }},\n    {{ $json.user_agent ? \"'\" + $json.user_agent.replace(/'/g, \"''\") + \"'\" : 'NULL' }},\n    '{{ $json.domain }}',\n    '{{ $json.purpose }}',\n    '{{ $json.legal_basis }}',\n    '{{ $json.controller }}',\n    ARRAY['consent_records']\n)\nRETURNING id;",
+        "options": {}
+      },
+      "id": "audit-log-revoke",
+      "name": "📋 Audit Log (Revoke)",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [720, -240],
+      "credentials": {
+        "postgres": {
+          "id": "dPjh4Kdb4nIbCTQG",
+          "name": "Postgres account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// ═══════════════════════════════════════════════════════════════\n// ✅ Prepare response\n// ═══════════════════════════════════════════════════════════════\n\nconst preparedData = $('📋 Prepare Audit (Revoke)').first().json;\n\nreturn [{\n    json: {\n        success: true,\n        message: 'Consent revoked successfully',\n        data: {\n            sessionId: preparedData.session_id,\n            revokedCount: preparedData.revoked_count,\n            reason: JSON.parse(preparedData.details).reason,\n            timestamp: new Date().toISOString(),\n            deleteDataRequested: JSON.parse(preparedData.details).deleteDataRequested\n        }\n    }\n}];"
+      },
+      "id": "prepare-response-revoke",
+      "name": "✅ Prepare Response (Revoke)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [944, -240]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "X-GDPR-Consent",
+                "value": "revoked"
+              }
+            ]
+          }
+        }
+      },
+      "id": "respond-revoke",
+      "name": "📤 Respond (Revoke)",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [1168, -240]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json.error }}",
+        "options": {
+          "responseCode": "={{ $json.error.status }}"
+        }
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [48, -80],
+      "id": "error-response-revoke",
+      "name": "❌ Error (Revoke)"
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "gdpr-data-access",
+        "responseMode": "responseNode",
+        "options": {
+          "allowedOrigins": "*"
+        }
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [-720, 320],
+      "id": "webhook-access",
+      "name": "🌐 Webhook: Data Access",
+      "webhookId": "gdpr-data-access-webhook"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {"id": "api-key", "name": "api_key", "value": "YOUR_API_KEY_HERE", "type": "string"},
+            {"id": "rate-window", "name": "rate_limit_window_ms", "value": 60000, "type": "number"},
+            {"id": "rate-max", "name": "rate_limit_max_requests", "value": 60, "type": "number"},
+            {"id": "table-consents", "name": "table_gdpr_consents", "value": "gdpr_consents", "type": "string"},
+            {"id": "table-prechat", "name": "table_prechat_submissions", "value": "prechat_submissions", "type": "string"},
+            {"id": "table-contacts", "name": "table_user_contact_data", "value": "user_contact_data", "type": "string"},
+            {"id": "table-chat-ru", "name": "table_chat_histories_ru", "value": "n8n_chat_histories_ru", "type": "string"},
+            {"id": "table-chat-en", "name": "table_chat_histories_en", "value": "n8n_chat_histories_en", "type": "string"},
+            {"id": "table-audit", "name": "table_gdpr_audit_log", "value": "gdpr_audit_log", "type": "string"}
+          ]
+        },
+        "options": {}
+      },
+      "id": "config-access",
+      "name": "⚙️ CONFIG: Data Access",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [-528, 320]
+    },
+    {
+      "parameters": {
+        "jsCode": "// ═══════════════════════════════════════════════════════════════\n// 🔐 Security Check\n// ═══════════════════════════════════════════════════════════════\n\nconst config = $('⚙️ CONFIG: Data Access').first().json;\nconst API_KEY = config.api_key;\nconst RATE_LIMIT_WINDOW_MS = config.rate_limit_window_ms;\nconst RATE_LIMIT_MAX_REQUESTS = config.rate_limit_max_requests;\n\nconst inputData = $('🌐 Webhook: Data Access').item.json;\nconst body = inputData.body || {};\nconst headers = inputData.headers || {};\nconst query = inputData.query || {};\nconst clientIP = headers['x-real-ip'] || headers['x-forwarded-for'] || headers['cf-connecting-ip'] || 'unknown';\nconst now = Date.now();\n\nconst staticData = $getWorkflowStaticData('global');\nif (!staticData.rateLimits) { staticData.rateLimits = {}; }\nfor (const ip in staticData.rateLimits) {\n  if (now - staticData.rateLimits[ip].firstRequest > RATE_LIMIT_WINDOW_MS) { delete staticData.rateLimits[ip]; }\n}\nif (!staticData.rateLimits[clientIP]) {\n  staticData.rateLimits[clientIP] = { count: 1, firstRequest: now };\n} else {\n  staticData.rateLimits[clientIP].count++;\n  if (staticData.rateLimits[clientIP].count > RATE_LIMIT_MAX_REQUESTS) {\n    return [{ json: { ...inputData, authorized: false, error: { success: false, error: 'Too many requests', status: 429 } } }];\n  }\n}\n\nconst providedKey = headers['x-api-key'] || body.apiKey || query.apiKey || '';\nif (!providedKey) { return [{ json: { ...inputData, authorized: false, error: { success: false, error: 'API key not provided', status: 401 } } }]; }\nif (providedKey !== API_KEY) { return [{ json: { ...inputData, authorized: false, error: { success: false, error: 'Invalid API key', status: 401 } } }]; }\n\nreturn [{ json: { ...inputData, authorized: true } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-336, 320],
+      "id": "security-check-access",
+      "name": "🔐 Security Check (Access)"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {"caseSensitive": true, "leftValue": "", "typeValidation": "loose", "version": 2},
+          "conditions": [{"id": "auth-condition", "leftValue": "={{ $json.authorized }}", "rightValue": "", "operator": {"type": "boolean", "operation": "true", "singleValue": true}}],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [-144, 320],
+      "id": "auth-check-access",
+      "name": "❓ Auth Check (Access)"
+    },
+    {
+      "parameters": {
+        "jsCode": "// ═══════════════════════════════════════════════════════════════\n// 📝 Parse data access request\n// ═══════════════════════════════════════════════════════════════\n\nconst webhookData = items[0].json;\nconst body = webhookData.body || webhookData;\n\nconst sessionId = body.sessionId || body.session_id;\nconst userId = body.userId || body.user_id;\nconst domain = body.domain || webhookData.headers?.origin || '';\nconst ipAddress = webhookData.headers?.['x-forwarded-for'] || webhookData.headers?.['x-real-ip'] || null;\nconst userAgent = webhookData.headers?.['user-agent'] || null;\n\nif (!sessionId && !userId) {\n    throw new Error('sessionId or userId is required');\n}\n\nreturn [{\n    json: {\n        session_id: sessionId,\n        user_id: userId,\n        domain: domain,\n        ip_address: ipAddress,\n        user_agent: userAgent\n    }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [48, 256],
+      "id": "parse-access-request",
+      "name": "📝 Parse Access Request"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "WITH user_data AS (\n    SELECT \n        'consent' as data_type,\n        jsonb_build_object(\n            'consent_given', consent_given,\n            'is_active', is_active,\n            'consent_type', consent_type,\n            'privacy_policy_version', privacy_policy_version,\n            'domain', domain,\n            'created_at', created_at,\n            'expires_at', expires_at,\n            'revoked_at', revoked_at,\n            'revoke_reason', revoke_reason\n        ) as data\n    FROM {{ $('⚙️ CONFIG: Data Access').first().json.table_gdpr_consents }}\n    WHERE session_id = '{{ $json.session_id }}'\n    ORDER BY created_at DESC\n    LIMIT 1\n),\nuser_contact AS (\n    SELECT \n        'contact_data' as data_type,\n        CASE \n            WHEN EXISTS (\n                SELECT 1 FROM {{ $('⚙️ CONFIG: Data Access').first().json.table_prechat_submissions }} ps \n                WHERE ps.session_id = '{{ $json.session_id }}'\n                AND (ps.name IS NOT NULL OR ps.email IS NOT NULL OR ps.phone IS NOT NULL)\n            ) THEN (\n                SELECT jsonb_build_object(\n                    'name', ps.name,\n                    'email', ps.email,\n                    'phone', ps.phone,\n                    'company', ps.company,\n                    'created_at', ps.created_at,\n                    'source', 'prechat_form'\n                )\n                FROM {{ $('⚙️ CONFIG: Data Access').first().json.table_prechat_submissions }} ps\n                WHERE ps.session_id = '{{ $json.session_id }}'\n                ORDER BY ps.created_at DESC\n                LIMIT 1\n            )\n            ELSE (\n                SELECT jsonb_build_object(\n                    'name', COALESCE(ucd.full_name, CONCAT_WS(' ', ucd.first_name, ucd.last_name)),\n                    'first_name', ucd.first_name,\n                    'last_name', ucd.last_name,\n                    'email', ucd.email,\n                    'phone', COALESCE(ucd.phone, ucd.phone_raw),\n                    'company', ucd.company,\n                    'position', ucd.position,\n                    'location', ucd.location,\n                    'telegram', ucd.telegram,\n                    'whatsapp', ucd.whatsapp,\n                    'instagram', ucd.instagram,\n                    'preferred_contact', ucd.preferred_contact,\n                    'created_at', ucd.created_at,\n                    'source', 'extracted_from_dialog',\n                    'confidence_score', ucd.confidence_score\n                )\n                FROM {{ $('⚙️ CONFIG: Data Access').first().json.table_user_contact_data }} ucd\n                WHERE ucd.session_id = '{{ $json.session_id }}'\n                ORDER BY ucd.last_updated DESC\n                LIMIT 1\n            )\n        END as data\n),\nchat_history AS (\n    SELECT \n        'chat_message' as data_type,\n        jsonb_build_object(\n            'message_type', message::json->>'type',\n            'content', message::json->>'content',\n            'timestamp', created_at,\n            'platform', platform,\n            'language', 'ru'\n        ) as data\n    FROM {{ $('⚙️ CONFIG: Data Access').first().json.table_chat_histories_ru }}\n    WHERE session_id = '{{ $json.session_id }}'\n    \n    UNION ALL\n    \n    SELECT \n        'chat_message' as data_type,\n        jsonb_build_object(\n            'message_type', message::json->>'type',\n            'content', message::json->>'content',\n            'timestamp', created_at,\n            'platform', platform,\n            'language', 'en'\n        ) as data\n    FROM {{ $('⚙️ CONFIG: Data Access').first().json.table_chat_histories_en }}\n    WHERE session_id = '{{ $json.session_id }}'\n)\nSELECT * FROM user_data\nUNION ALL\nSELECT * FROM user_contact WHERE data IS NOT NULL\nUNION ALL\nSELECT * FROM chat_history\nORDER BY data_type;",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [272, 256],
+      "id": "get-user-data-access",
+      "name": "🐘 Get User Data",
+      "credentials": {"postgres": {"id": "dPjh4Kdb4nIbCTQG", "name": "Postgres account"}}
+    },
+    {
+      "parameters": {
+        "jsCode": "// ═══════════════════════════════════════════════════════════════\n// 📊 Format GDPR response\n// ═══════════════════════════════════════════════════════════════\n\nconst sessionId = $('📝 Parse Access Request').first().json.session_id;\n\nif (!items || items.length === 0) {\n    return [{\n        json: {\n            success: true,\n            data: {\n                sessionId: sessionId,\n                consent: null,\n                contactData: null,\n                chatHistory: [],\n                exportedAt: new Date().toISOString(),\n                message: 'No data found for this session'\n            },\n            dataFound: false\n        }\n    }];\n}\n\nlet consent = null;\nlet contactData = null;\nconst chatHistory = [];\n\nfor (const item of items) {\n    const dataType = item.json.data_type;\n    const data = item.json.data;\n    \n    switch (dataType) {\n        case 'consent':\n            consent = data;\n            break;\n        case 'contact_data':\n            contactData = data;\n            break;\n        case 'chat_message':\n            chatHistory.push(data);\n            break;\n    }\n}\n\nchatHistory.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));\n\nreturn [{\n    json: {\n        success: true,\n        data: {\n            sessionId: sessionId,\n            consent: consent,\n            contactData: contactData,\n            chatHistory: chatHistory,\n            totalMessages: chatHistory.length,\n            exportedAt: new Date().toISOString()\n        },\n        dataFound: true\n    }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [496, 256],
+      "id": "format-access-response",
+      "name": "📊 Format Access Response"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO {{ $('⚙️ CONFIG: Data Access').first().json.table_gdpr_audit_log }} (\n    session_id,\n    action,\n    details,\n    ip_address,\n    user_agent,\n    domain,\n    purpose,\n    legal_basis,\n    controller,\n    data_categories\n) VALUES (\n    '{{ $('📝 Parse Access Request').first().json.session_id }}',\n    'data_access',\n    '{{ JSON.stringify({\n        data_found: $json.dataFound,\n        total_messages: $json.data?.totalMessages || 0,\n        has_consent: $json.data?.consent !== null,\n        has_contact: $json.data?.contactData !== null,\n        gdpr_article: \"Art. 15 - Right of Access\"\n    }).replace(/'/g, \"''\") }}',\n    {{ $('📝 Parse Access Request').first().json.ip_address ? \"'\" + $('📝 Parse Access Request').first().json.ip_address + \"'\" : 'NULL' }},\n    {{ $('📝 Parse Access Request').first().json.user_agent ? \"'\" + $('📝 Parse Access Request').first().json.user_agent.replace(/'/g, \"''\") + \"'\" : 'NULL' }},\n    '{{ $('📝 Parse Access Request').first().json.domain }}',\n    'data_access',\n    'consent',\n    '{{ $('📝 Parse Access Request').first().json.domain }}',\n    ARRAY['session_id', 'consent_records', 'contact_data', 'chat_history']\n)\nRETURNING id;",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [720, 256],
+      "id": "audit-log-access",
+      "name": "📋 Audit Log (Access)",
+      "credentials": {"postgres": {"id": "dPjh4Kdb4nIbCTQG", "name": "Postgres account"}}
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $('📊 Format Access Response').first().json }}",
+        "options": {"responseHeaders": {"entries": [{"name": "X-GDPR-Request", "value": "data-access"}]}}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [944, 256],
+      "id": "respond-access",
+      "name": "📤 Respond (Access)"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json.error }}",
+        "options": {"responseCode": "={{ $json.error.status }}"}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [48, 416],
+      "id": "error-response-access",
+      "name": "❌ Error (Access)"
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "delete-session-gdpr",
+        "responseMode": "responseNode",
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              {"name": "Access-Control-Allow-Origin", "value": "*"},
+              {"name": "Access-Control-Allow-Methods", "value": "POST, OPTIONS"},
+              {"name": "Access-Control-Allow-Headers", "value": "Content-Type"}
+            ]
+          }
+        }
+      },
+      "id": "webhook-delete",
+      "name": "🌐 Webhook: Delete",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1.1,
+      "position": [-720, 816],
+      "webhookId": "e1ec3156-2578-4572-97c8-70c917b6f4a6"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {"id": "api-key", "name": "api_key", "value": "YOUR_API_KEY_HERE", "type": "string"},
+            {"id": "rate-window", "name": "rate_limit_window_ms", "value": 60000, "type": "number"},
+            {"id": "rate-max", "name": "rate_limit_max_requests", "value": 60, "type": "number"},
+            {"id": "table-monitoring", "name": "table_webchat_monitoring", "value": "webchat_monitoring", "type": "string"},
+            {"id": "table-contacts", "name": "table_user_contact_data", "value": "user_contact_data", "type": "string"},
+            {"id": "table-analysis", "name": "table_dialog_analysis", "value": "dialog_analysis", "type": "string"},
+            {"id": "table-chat-ru", "name": "table_chat_histories_ru", "value": "n8n_chat_histories_ru", "type": "string"},
+            {"id": "table-chat-en", "name": "table_chat_histories_en", "value": "n8n_chat_histories_en", "type": "string"},
+            {"id": "table-highlights", "name": "table_conversation_highlights", "value": "conversation_highlights", "type": "string"},
+            {"id": "table-preferences", "name": "table_user_preferences", "value": "user_preferences", "type": "string"},
+            {"id": "table-prechat", "name": "table_prechat_submissions", "value": "prechat_submissions", "type": "string"},
+            {"id": "table-consents", "name": "table_gdpr_consents", "value": "gdpr_consents", "type": "string"},
+            {"id": "table-audit", "name": "table_gdpr_audit_log", "value": "gdpr_audit_log", "type": "string"}
+          ]
+        },
+        "options": {}
+      },
+      "id": "config-delete",
+      "name": "⚙️ CONFIG: Delete",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [-528, 816]
+    },
+    {
+      "parameters": {
+        "jsCode": "// ═══════════════════════════════════════════════════════════════\n// 🔐 Security Check\n// ═══════════════════════════════════════════════════════════════\n\nconst config = $('⚙️ CONFIG: Delete').first().json;\nconst API_KEY = config.api_key;\nconst RATE_LIMIT_WINDOW_MS = config.rate_limit_window_ms;\nconst RATE_LIMIT_MAX_REQUESTS = config.rate_limit_max_requests;\n\nconst inputData = $('🌐 Webhook: Delete').item.json;\nconst body = inputData.body || {};\nconst headers = inputData.headers || {};\nconst query = inputData.query || {};\nconst clientIP = headers['x-real-ip'] || headers['x-forwarded-for'] || headers['cf-connecting-ip'] || 'unknown';\nconst now = Date.now();\n\nconst staticData = $getWorkflowStaticData('global');\nif (!staticData.rateLimits) { staticData.rateLimits = {}; }\nfor (const ip in staticData.rateLimits) {\n  if (now - staticData.rateLimits[ip].firstRequest > RATE_LIMIT_WINDOW_MS) { delete staticData.rateLimits[ip]; }\n}\nif (!staticData.rateLimits[clientIP]) {\n  staticData.rateLimits[clientIP] = { count: 1, firstRequest: now };\n} else {\n  staticData.rateLimits[clientIP].count++;\n  if (staticData.rateLimits[clientIP].count > RATE_LIMIT_MAX_REQUESTS) {\n    return [{ json: { ...inputData, authorized: false, error: { success: false, error: 'Too many requests', status: 429 } } }];\n  }\n}\n\nconst providedKey = headers['x-api-key'] || body.apiKey || query.apiKey || '';\nif (!providedKey) { return [{ json: { ...inputData, authorized: false, error: { success: false, error: 'API key not provided', status: 401 } } }]; }\nif (providedKey !== API_KEY) { return [{ json: { ...inputData, authorized: false, error: { success: false, error: 'Invalid API key', status: 401 } } }]; }\n\nreturn [{ json: { ...inputData, authorized: true } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-336, 816],
+      "id": "security-check-delete",
+      "name": "🔐 Security Check (Delete)"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {"caseSensitive": true, "leftValue": "", "typeValidation": "loose", "version": 2},
+          "conditions": [{"id": "auth-condition", "leftValue": "={{ $json.authorized }}", "rightValue": "", "operator": {"type": "boolean", "operation": "true", "singleValue": true}}],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [-144, 816],
+      "id": "auth-check-delete",
+      "name": "❓ Auth Check (Delete)"
+    },
+    {
+      "parameters": {
+        "jsCode": "// ═══════════════════════════════════════════════════════════════\n// 📝 Extract data for deletion\n// ═══════════════════════════════════════════════════════════════\n\nconst webhookData = items[0].json;\nconst body = webhookData.body || webhookData;\n\nconst sessionId = body.sessionId || body.session_id;\nconst reason = body.reason || 'user_request';\nconst domain = body.domain || webhookData.headers?.origin || '';\nconst ipAddress = webhookData.headers?.['x-forwarded-for'] || webhookData.headers?.['x-real-ip'] || null;\nconst userAgent = webhookData.headers?.['user-agent'] || null;\n\nif (!sessionId) {\n    throw new Error('sessionId is required');\n}\n\nreturn [{\n    json: {\n        session_id: sessionId,\n        reason: reason,\n        domain: domain,\n        ip_address: ipAddress,\n        user_agent: userAgent\n    }\n}];"
+      },
+      "id": "transform-delete-data",
+      "name": "📝 Transform Delete Data",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [48, 752]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "WITH session_data AS (\n  SELECT '{{ $json.session_id }}' as sid,\n         SUBSTRING('{{ $json.session_id }}' FROM POSITION('_' IN '{{ $json.session_id }}') + 1) as cid\n),\ndeleted_monitoring AS (\n  DELETE FROM {{ $('⚙️ CONFIG: Delete').first().json.table_webchat_monitoring }} \n  WHERE session_id = (SELECT sid FROM session_data)\n  RETURNING *\n),\ndeleted_contacts AS (\n  DELETE FROM {{ $('⚙️ CONFIG: Delete').first().json.table_user_contact_data }}\n  WHERE session_id = (SELECT sid FROM session_data)\n  RETURNING *\n),\ndeleted_analysis AS (\n  DELETE FROM {{ $('⚙️ CONFIG: Delete').first().json.table_dialog_analysis }}\n  WHERE session_id = (SELECT sid FROM session_data)\n  RETURNING *\n),\ndeleted_chat_histories_ru AS (\n  DELETE FROM {{ $('⚙️ CONFIG: Delete').first().json.table_chat_histories_ru }}\n  WHERE session_id = (SELECT sid FROM session_data)\n  RETURNING *\n),\ndeleted_chat_histories_en AS (\n  DELETE FROM {{ $('⚙️ CONFIG: Delete').first().json.table_chat_histories_en }}\n  WHERE session_id = (SELECT sid FROM session_data)\n  RETURNING *\n),\ndeleted_highlights AS (\n  DELETE FROM {{ $('⚙️ CONFIG: Delete').first().json.table_conversation_highlights }}\n  WHERE session_id = (SELECT sid FROM session_data)\n  RETURNING *\n),\ndeleted_preferences AS (\n  DELETE FROM {{ $('⚙️ CONFIG: Delete').first().json.table_user_preferences }}\n  WHERE chat_id = (SELECT cid FROM session_data)\n  RETURNING *\n),\ndeleted_prechat AS (\n  DELETE FROM {{ $('⚙️ CONFIG: Delete').first().json.table_prechat_submissions }}\n  WHERE session_id = (SELECT sid FROM session_data)\n  RETURNING *\n),\ndeleted_consents AS (\n  DELETE FROM {{ $('⚙️ CONFIG: Delete').first().json.table_gdpr_consents }}\n  WHERE session_id = (SELECT sid FROM session_data)\n  RETURNING *\n)\nSELECT \n  (SELECT sid FROM session_data) as deleted_session_id,\n  (SELECT COUNT(*) FROM deleted_monitoring) as monitoring_deleted,\n  (SELECT COUNT(*) FROM deleted_contacts) as contacts_deleted,\n  (SELECT COUNT(*) FROM deleted_analysis) as analysis_deleted,\n  (SELECT COUNT(*) FROM deleted_chat_histories_ru) as chat_histories_ru_deleted,\n  (SELECT COUNT(*) FROM deleted_chat_histories_en) as chat_histories_en_deleted,\n  (SELECT COUNT(*) FROM deleted_highlights) as highlights_deleted,\n  (SELECT COUNT(*) FROM deleted_preferences) as preferences_deleted,\n  (SELECT COUNT(*) FROM deleted_prechat) as prechat_deleted,\n  (SELECT COUNT(*) FROM deleted_consents) as consents_deleted,\n  (SELECT COUNT(*) FROM deleted_monitoring) + \n  (SELECT COUNT(*) FROM deleted_contacts) + \n  (SELECT COUNT(*) FROM deleted_analysis) +\n  (SELECT COUNT(*) FROM deleted_chat_histories_ru) +\n  (SELECT COUNT(*) FROM deleted_chat_histories_en) +\n  (SELECT COUNT(*) FROM deleted_highlights) +\n  (SELECT COUNT(*) FROM deleted_preferences) +\n  (SELECT COUNT(*) FROM deleted_prechat) +\n  (SELECT COUNT(*) FROM deleted_consents) as total_deleted;",
+        "options": {}
+      },
+      "id": "delete-from-postgresql",
+      "name": "🐘 Delete from PostgreSQL",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.1,
+      "position": [272, 752],
+      "alwaysOutputData": true,
+      "credentials": {"postgres": {"id": "dPjh4Kdb4nIbCTQG", "name": "Postgres account"}}
+    },
+    {
+      "parameters": {
+        "jsCode": "// ═══════════════════════════════════════════════════════════════\n// 📋 Prepare data for Audit Log\n// ═══════════════════════════════════════════════════════════════\n\nconst transformData = $('📝 Transform Delete Data').first().json;\nconst deleteResult = $('🐘 Delete from PostgreSQL').first().json;\n\nconst monitoringDeleted = parseInt(deleteResult.monitoring_deleted) || 0;\nconst contactsDeleted = parseInt(deleteResult.contacts_deleted) || 0;\nconst analysisDeleted = parseInt(deleteResult.analysis_deleted) || 0;\nconst chatRuDeleted = parseInt(deleteResult.chat_histories_ru_deleted) || 0;\nconst chatEnDeleted = parseInt(deleteResult.chat_histories_en_deleted) || 0;\nconst highlightsDeleted = parseInt(deleteResult.highlights_deleted) || 0;\nconst preferencesDeleted = parseInt(deleteResult.preferences_deleted) || 0;\nconst prechatDeleted = parseInt(deleteResult.prechat_deleted) || 0;\nconst consentsDeleted = parseInt(deleteResult.consents_deleted) || 0;\nconst totalDeleted = parseInt(deleteResult.total_deleted) || 0;\n\nconst details = JSON.stringify({\n    reason: transformData.reason,\n    deleted_count: totalDeleted,\n    tables_affected: {\n        monitoring: monitoringDeleted,\n        contacts: contactsDeleted,\n        analysis: analysisDeleted,\n        chat_ru: chatRuDeleted,\n        chat_en: chatEnDeleted,\n        highlights: highlightsDeleted,\n        preferences: preferencesDeleted,\n        prechat: prechatDeleted,\n        consents: consentsDeleted\n    },\n    gdpr_article: \"Art. 17 - Right to Erasure\"\n});\n\nreturn [{\n    json: {\n        session_id: transformData.session_id,\n        action: 'data_erasure',\n        details: details,\n        ip_address: transformData.ip_address,\n        user_agent: transformData.user_agent,\n        domain: transformData.domain,\n        purpose: 'data_erasure',\n        legal_basis: 'consent',\n        controller: transformData.domain,\n        total_deleted: totalDeleted,\n        monitoring_deleted: monitoringDeleted,\n        contacts_deleted: contactsDeleted,\n        chat_histories_ru_deleted: chatRuDeleted,\n        chat_histories_en_deleted: chatEnDeleted,\n        consents_deleted: consentsDeleted\n    }\n}];"
+      },
+      "id": "prepare-audit-delete",
+      "name": "📋 Prepare Audit (Delete)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [496, 752]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO {{ $('⚙️ CONFIG: Delete').first().json.table_gdpr_audit_log }} (\n    session_id,\n    action,\n    details,\n    ip_address,\n    user_agent,\n    domain,\n    purpose,\n    legal_basis,\n    controller,\n    data_categories\n) VALUES (\n    '{{ $json.session_id }}',\n    '{{ $json.action }}',\n    '{{ $json.details.replace(/'/g, \"''\") }}',\n    {{ $json.ip_address ? \"'\" + $json.ip_address + \"'\" : 'NULL' }},\n    {{ $json.user_agent ? \"'\" + $json.user_agent.replace(/'/g, \"''\") + \"'\" : 'NULL' }},\n    '{{ $json.domain }}',\n    '{{ $json.purpose }}',\n    '{{ $json.legal_basis }}',\n    '{{ $json.controller }}',\n    ARRAY['session_id', 'chat_history', 'contact_data', 'consent_records', 'analytics']\n)\nRETURNING id;",
+        "options": {}
+      },
+      "id": "audit-log-delete",
+      "name": "📋 Audit Log (Delete)",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [720, 752],
+      "credentials": {"postgres": {"id": "dPjh4Kdb4nIbCTQG", "name": "Postgres account"}}
+    },
+    {
+      "parameters": {
+        "jsCode": "// ═══════════════════════════════════════════════════════════════\n// ✅ Format deletion response\n// ═══════════════════════════════════════════════════════════════\n\nconst auditData = $('📋 Prepare Audit (Delete)').first().json;\n\nreturn [{\n    json: {\n        success: auditData.total_deleted > 0,\n        message: auditData.total_deleted > 0 ? 'Data deleted successfully' : 'No data found for this session',\n        session_id: auditData.session_id,\n        deleted_count: auditData.total_deleted,\n        details: {\n            monitoring: auditData.monitoring_deleted,\n            contacts: auditData.contacts_deleted,\n            chat_history: auditData.chat_histories_ru_deleted + auditData.chat_histories_en_deleted,\n            consents: auditData.consents_deleted\n        }\n    }\n}];"
+      },
+      "id": "prepare-delete-response",
+      "name": "✅ Prepare Response (Delete)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [944, 752]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($json) }}",
+        "options": {
+          "responseCode": 200,
+          "responseHeaders": {"entries": [{"name": "Content-Type", "value": "application/json"}, {"name": "X-GDPR-Action", "value": "data-erasure"}]}
+        }
+      },
+      "id": "respond-delete",
+      "name": "📤 Respond (Delete)",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [1168, 752]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json.error }}",
+        "options": {"responseCode": "={{ $json.error.status }}"}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [48, 912],
+      "id": "error-response-delete",
+      "name": "❌ Error (Delete)"
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "prechat-form",
+        "responseMode": "responseNode",
+        "options": {"allowedOrigins": "*"}
+      },
+      "id": "webhook-prechat",
+      "name": "🌐 Webhook: PreChat",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [-720, 1312],
+      "webhookId": "a37e1da3-8f42-4cce-bd0e-c8d19c66856c"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {"id": "api-key", "name": "api_key", "value": "YOUR_API_KEY_HERE", "type": "string"},
+            {"id": "rate-window", "name": "rate_limit_window_ms", "value": 60000, "type": "number"},
+            {"id": "rate-max", "name": "rate_limit_max_requests", "value": 60, "type": "number"},
+            {"id": "table-prechat", "name": "table_prechat_submissions", "value": "prechat_submissions", "type": "string"},
+            {"id": "table-audit", "name": "table_gdpr_audit_log", "value": "gdpr_audit_log", "type": "string"}
+          ]
+        },
+        "options": {}
+      },
+      "id": "config-prechat",
+      "name": "⚙️ CONFIG: PreChat",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [-528, 1312]
+    },
+    {
+      "parameters": {
+        "jsCode": "// ═══════════════════════════════════════════════════════════════\n// 🔐 Security Check\n// ═══════════════════════════════════════════════════════════════\n\nconst config = $('⚙️ CONFIG: PreChat').first().json;\nconst API_KEY = config.api_key;\nconst RATE_LIMIT_WINDOW_MS = config.rate_limit_window_ms;\nconst RATE_LIMIT_MAX_REQUESTS = config.rate_limit_max_requests;\n\nconst inputData = $('🌐 Webhook: PreChat').item.json;\nconst body = inputData.body || {};\nconst headers = inputData.headers || {};\nconst query = inputData.query || {};\nconst clientIP = headers['x-real-ip'] || headers['x-forwarded-for'] || headers['cf-connecting-ip'] || 'unknown';\nconst now = Date.now();\n\nconst staticData = $getWorkflowStaticData('global');\nif (!staticData.rateLimits) { staticData.rateLimits = {}; }\nfor (const ip in staticData.rateLimits) {\n  if (now - staticData.rateLimits[ip].firstRequest > RATE_LIMIT_WINDOW_MS) { delete staticData.rateLimits[ip]; }\n}\nif (!staticData.rateLimits[clientIP]) {\n  staticData.rateLimits[clientIP] = { count: 1, firstRequest: now };\n} else {\n  staticData.rateLimits[clientIP].count++;\n  if (staticData.rateLimits[clientIP].count > RATE_LIMIT_MAX_REQUESTS) {\n    return [{ json: { ...inputData, authorized: false, error: { success: false, error: 'Too many requests', status: 429 } } }];\n  }\n}\n\nconst providedKey = headers['x-api-key'] || body.apiKey || query.apiKey || '';\nif (!providedKey) { return [{ json: { ...inputData, authorized: false, error: { success: false, error: 'API key not provided', status: 401 } } }]; }\nif (providedKey !== API_KEY) { return [{ json: { ...inputData, authorized: false, error: { success: false, error: 'Invalid API key', status: 401 } } }]; }\n\nreturn [{ json: { ...inputData, authorized: true } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-336, 1312],
+      "id": "security-check-prechat",
+      "name": "🔐 Security Check (PreChat)"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {"caseSensitive": true, "leftValue": "", "typeValidation": "loose", "version": 2},
+          "conditions": [{"id": "auth-condition", "leftValue": "={{ $json.authorized }}", "rightValue": "", "operator": {"type": "boolean", "operation": "true", "singleValue": true}}],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [-144, 1312],
+      "id": "auth-check-prechat",
+      "name": "❓ Auth Check (PreChat)"
+    },
+    {
+      "parameters": {
+        "jsCode": "// ═══════════════════════════════════════════════════════════════\n// 📝 Transform PreChat form data\n// ═══════════════════════════════════════════════════════════════\n\nconst webhookData = items[0].json;\nconst body = webhookData.body || webhookData;\n\nconst formData = body.formData || body.userData || {};\n\nconst sessionId = body.sessionId || body.session_id;\nconst name = formData.name || null;\nconst email = formData.email || null;\nconst phone = formData.phone || null;\nconst company = formData.company || null;\n\nconst standardFields = ['name', 'email', 'phone', 'company'];\nconst customFields = {};\nfor (const key in formData) {\n    if (!standardFields.includes(key)) {\n        customFields[key] = formData[key];\n    }\n}\n\nconst gdprConsent = body.gdprConsent !== undefined ? body.gdprConsent : true;\nconst domain = body.domain || webhookData.headers?.origin || webhookData.headers?.referer || '';\nconst ipAddress = webhookData.headers?.['x-forwarded-for'] || webhookData.headers?.['x-real-ip'] || null;\nconst userAgent = webhookData.headers?.['user-agent'] || null;\n\nif (!sessionId) {\n    throw new Error('sessionId is required');\n}\n\nconst dataCategories = ['session_id'];\nif (name) dataCategories.push('name');\nif (email) dataCategories.push('email');\nif (phone) dataCategories.push('phone');\nif (company) dataCategories.push('company');\n\nreturn [{\n    json: {\n        session_id: sessionId,\n        name: name,\n        email: email,\n        phone: phone,\n        company: company,\n        custom_fields: JSON.stringify(customFields),\n        gdpr_consent: gdprConsent,\n        domain: domain,\n        ip_address: ipAddress,\n        user_agent: userAgent,\n        data_categories: dataCategories\n    }\n}];"
+      },
+      "id": "transform-prechat-data",
+      "name": "📝 Transform PreChat Data",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [48, 1248]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO {{ $('⚙️ CONFIG: PreChat').first().json.table_prechat_submissions }} (\n    session_id,\n    name,\n    email,\n    phone,\n    company,\n    custom_fields,\n    gdpr_consent,\n    domain\n) VALUES (\n    '{{ $json.session_id }}',\n    {{ $json.name ? \"'\" + $json.name.replace(/'/g, \"''\") + \"'\" : 'NULL' }},\n    {{ $json.email ? \"'\" + $json.email.replace(/'/g, \"''\") + \"'\" : 'NULL' }},\n    {{ $json.phone ? \"'\" + $json.phone.replace(/'/g, \"''\") + \"'\" : 'NULL' }},\n    {{ $json.company ? \"'\" + $json.company.replace(/'/g, \"''\") + \"'\" : 'NULL' }},\n    '{{ $json.custom_fields }}',\n    {{ $json.gdpr_consent }},\n    '{{ $json.domain }}'\n)\nON CONFLICT (session_id) DO UPDATE SET\n    name = EXCLUDED.name,\n    email = EXCLUDED.email,\n    phone = EXCLUDED.phone,\n    company = EXCLUDED.company,\n    custom_fields = EXCLUDED.custom_fields,\n    updated_at = NOW()\nRETURNING id, session_id, name, email, created_at;",
+        "options": {}
+      },
+      "id": "save-prechat-data",
+      "name": "🐘 Save PreChat Data",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [272, 1248],
+      "credentials": {"postgres": {"id": "dPjh4Kdb4nIbCTQG", "name": "Postgres account"}}
+    },
+    {
+      "parameters": {
+        "jsCode": "// ═══════════════════════════════════════════════════════════════\n// 📋 Prepare data for Audit Log\n// ═══════════════════════════════════════════════════════════════\n\nconst transformData = $('📝 Transform PreChat Data').first().json;\nconst saveResult = $('🐘 Save PreChat Data').first().json || {};\n\nconst details = JSON.stringify({\n    form_type: \"prechat\",\n    fields_collected: transformData.data_categories,\n    gdpr_consent: transformData.gdpr_consent,\n    gdpr_article: \"Art. 13/14 - Information to be provided\"\n});\n\nconst dataCategoriesArray = transformData.data_categories.map(c => \"'\" + c + \"'\").join(', ');\n\nreturn [{\n    json: {\n        session_id: transformData.session_id,\n        action: 'personal_data_collected',\n        details: details,\n        ip_address: transformData.ip_address,\n        user_agent: transformData.user_agent,\n        domain: transformData.domain,\n        purpose: 'lead_qualification',\n        legal_basis: 'consent',\n        controller: transformData.domain,\n        data_categories_sql: dataCategoriesArray,\n        submission_id: saveResult.id || null,\n        submission_session_id: saveResult.session_id || transformData.session_id\n    }\n}];"
+      },
+      "id": "prepare-audit-prechat",
+      "name": "📋 Prepare Audit (PreChat)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [496, 1248]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO {{ $('⚙️ CONFIG: PreChat').first().json.table_gdpr_audit_log }} (\n    session_id,\n    action,\n    details,\n    ip_address,\n    user_agent,\n    domain,\n    purpose,\n    legal_basis,\n    controller,\n    data_categories\n) VALUES (\n    '{{ $json.session_id }}',\n    '{{ $json.action }}',\n    '{{ $json.details.replace(/'/g, \"''\") }}',\n    {{ $json.ip_address ? \"'\" + $json.ip_address + \"'\" : 'NULL' }},\n    {{ $json.user_agent ? \"'\" + $json.user_agent.replace(/'/g, \"''\") + \"'\" : 'NULL' }},\n    '{{ $json.domain }}',\n    '{{ $json.purpose }}',\n    '{{ $json.legal_basis }}',\n    '{{ $json.controller }}',\n    ARRAY[{{ $json.data_categories_sql }}]\n)\nRETURNING id;",
+        "options": {}
+      },
+      "id": "audit-log-prechat",
+      "name": "📋 Audit Log (PreChat)",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [720, 1248],
+      "credentials": {"postgres": {"id": "dPjh4Kdb4nIbCTQG", "name": "Postgres account"}}
+    },
+    {
+      "parameters": {
+        "jsCode": "// ═══════════════════════════════════════════════════════════════\n// ✅ Prepare response\n// ═══════════════════════════════════════════════════════════════\n\nconst auditData = $('📋 Prepare Audit (PreChat)').first().json;\n\nreturn [{\n    json: {\n        success: true,\n        message: 'Form submitted',\n        submissionId: auditData.submission_id,\n        sessionId: auditData.submission_session_id\n    }\n}];"
+      },
+      "id": "prepare-prechat-response",
+      "name": "✅ Prepare Response (PreChat)",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [944, 1248]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {}
+      },
+      "id": "respond-prechat",
+      "name": "📤 Respond (PreChat)",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [1168, 1248]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json.error }}",
+        "options": {"responseCode": "={{ $json.error.status }}"}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [48, 1408],
+      "id": "error-response-prechat",
+      "name": "❌ Error (PreChat)"
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "gdpr-data-export",
+        "responseMode": "responseNode",
+        "options": {"allowedOrigins": "*"}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [-720, 1808],
+      "id": "webhook-export",
+      "name": "🌐 Webhook: Export",
+      "webhookId": "gdpr-data-export-webhook"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {"id": "api-key", "name": "api_key", "value": "YOUR_API_KEY_HERE", "type": "string"},
+            {"id": "rate-window", "name": "rate_limit_window_ms", "value": 60000, "type": "number"},
+            {"id": "rate-max", "name": "rate_limit_max_requests", "value": 60, "type": "number"},
+            {"id": "table-consents", "name": "table_gdpr_consents", "value": "gdpr_consents", "type": "string"},
+            {"id": "table-prechat", "name": "table_prechat_submissions", "value": "prechat_submissions", "type": "string"},
+            {"id": "table-chat-ru", "name": "table_chat_histories_ru", "value": "n8n_chat_histories_ru", "type": "string"},
+            {"id": "table-chat-en", "name": "table_chat_histories_en", "value": "n8n_chat_histories_en", "type": "string"},
+            {"id": "table-monitoring", "name": "table_webchat_monitoring", "value": "webchat_monitoring", "type": "string"},
+            {"id": "table-audit", "name": "table_gdpr_audit_log", "value": "gdpr_audit_log", "type": "string"}
+          ]
+        },
+        "options": {}
+      },
+      "id": "config-export",
+      "name": "⚙️ CONFIG: Export",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [-528, 1808]
+    },
+    {
+      "parameters": {
+        "jsCode": "// ═══════════════════════════════════════════════════════════════\n// 🔐 Security Check\n// ═══════════════════════════════════════════════════════════════\n\nconst config = $('⚙️ CONFIG: Export').first().json;\nconst API_KEY = config.api_key;\nconst RATE_LIMIT_WINDOW_MS = config.rate_limit_window_ms;\nconst RATE_LIMIT_MAX_REQUESTS = config.rate_limit_max_requests;\n\nconst inputData = $('🌐 Webhook: Export').item.json;\nconst body = inputData.body || {};\nconst headers = inputData.headers || {};\nconst query = inputData.query || {};\nconst clientIP = headers['x-real-ip'] || headers['x-forwarded-for'] || headers['cf-connecting-ip'] || 'unknown';\nconst now = Date.now();\n\nconst staticData = $getWorkflowStaticData('global');\nif (!staticData.rateLimits) { staticData.rateLimits = {}; }\nfor (const ip in staticData.rateLimits) {\n  if (now - staticData.rateLimits[ip].firstRequest > RATE_LIMIT_WINDOW_MS) { delete staticData.rateLimits[ip]; }\n}\nif (!staticData.rateLimits[clientIP]) {\n  staticData.rateLimits[clientIP] = { count: 1, firstRequest: now };\n} else {\n  staticData.rateLimits[clientIP].count++;\n  if (staticData.rateLimits[clientIP].count > RATE_LIMIT_MAX_REQUESTS) {\n    return [{ json: { ...inputData, authorized: false, error: { success: false, error: 'Too many requests', status: 429 } } }];\n  }\n}\n\nconst providedKey = headers['x-api-key'] || body.apiKey || query.apiKey || '';\nif (!providedKey) { return [{ json: { ...inputData, authorized: false, error: { success: false, error: 'API key not provided', status: 401 } } }]; }\nif (providedKey !== API_KEY) { return [{ json: { ...inputData, authorized: false, error: { success: false, error: 'Invalid API key', status: 401 } } }]; }\n\nreturn [{ json: { ...inputData, authorized: true } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-336, 1808],
+      "id": "security-check-export",
+      "name": "🔐 Security Check (Export)"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {"caseSensitive": true, "leftValue": "", "typeValidation": "loose", "version": 2},
+          "conditions": [{"id": "auth-condition", "leftValue": "={{ $json.authorized }}", "rightValue": "", "operator": {"type": "boolean", "operation": "true", "singleValue": true}}],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [-144, 1808],
+      "id": "auth-check-export",
+      "name": "❓ Auth Check (Export)"
+    },
+    {
+      "parameters": {
+        "jsCode": "// ═══════════════════════════════════════════════════════════════\n// 📝 Parse export request\n// ═══════════════════════════════════════════════════════════════\n\nconst webhookData = items[0].json;\nconst body = webhookData.body || webhookData;\n\nconst sessionId = body.sessionId || body.session_id;\nconst format = body.format || 'json';\nconst language = body.language || 'en';\nconst domain = body.domain || webhookData.headers?.origin || '';\nconst ipAddress = webhookData.headers?.['x-forwarded-for'] || webhookData.headers?.['x-real-ip'] || null;\nconst userAgent = webhookData.headers?.['user-agent'] || null;\n\nif (!sessionId) {\n    throw new Error('sessionId is required');\n}\n\nreturn [{\n    json: {\n        session_id: sessionId,\n        format: format,\n        language: language,\n        domain: domain,\n        ip_address: ipAddress,\n        user_agent: userAgent\n    }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [48, 1744],
+      "id": "parse-export-request",
+      "name": "📝 Parse Export Request"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT session_id, user_email, consent_given, consent_type, privacy_policy_version, ip_address, user_agent, domain, is_active, revoked_at, revoke_reason, revoke_ip, created_at as consent_date, expires_at as consent_expires FROM {{ $('⚙️ CONFIG: Export').first().json.table_gdpr_consents }} WHERE session_id = '{{ $json.session_id }}' ORDER BY created_at DESC;",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [320, 1568],
+      "id": "get-consents-export",
+      "name": "🐘 Get Consents",
+      "credentials": {"postgres": {"id": "dPjh4Kdb4nIbCTQG", "name": "Postgres account"}}
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT session_id, name, email, phone, company, custom_fields, gdpr_consent as form_consent, domain, created_at as profile_created FROM {{ $('⚙️ CONFIG: Export').first().json.table_prechat_submissions }} WHERE session_id = '{{ $('📝 Parse Export Request').first().json.session_id }}' ORDER BY created_at DESC LIMIT 1;",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [320, 1696],
+      "id": "get-profile-export",
+      "name": "🐘 Get Profile",
+      "credentials": {"postgres": {"id": "dPjh4Kdb4nIbCTQG", "name": "Postgres account"}}
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT message::json->>'type' as message_type, message::json->>'content' as content, created_at as timestamp, platform, 'ru' as language FROM {{ $('⚙️ CONFIG: Export').first().json.table_chat_histories_ru }} WHERE session_id = '{{ $('📝 Parse Export Request').first().json.session_id }}' UNION ALL SELECT message::json->>'type' as message_type, message::json->>'content' as content, created_at as timestamp, platform, 'en' as language FROM {{ $('⚙️ CONFIG: Export').first().json.table_chat_histories_en }} WHERE session_id = '{{ $('📝 Parse Export Request').first().json.session_id }}' ORDER BY timestamp ASC;",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [320, 1824],
+      "id": "get-chat-export",
+      "name": "🐘 Get Chat History",
+      "credentials": {"postgres": {"id": "dPjh4Kdb4nIbCTQG", "name": "Postgres account"}}
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT action, details, ip_address, domain, created_at as timestamp FROM {{ $('⚙️ CONFIG: Export').first().json.table_gdpr_audit_log }} WHERE session_id = '{{ $('📝 Parse Export Request').first().json.session_id }}' ORDER BY created_at ASC;",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [320, 1952],
+      "id": "get-audit-export",
+      "name": "🐘 Get Audit Log",
+      "credentials": {"postgres": {"id": "dPjh4Kdb4nIbCTQG", "name": "Postgres account"}}
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT * FROM {{ $('⚙️ CONFIG: Export').first().json.table_webchat_monitoring }} WHERE session_id = '{{ $('📝 Parse Export Request').first().json.session_id }}' ORDER BY created_at ASC;",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [320, 2080],
+      "id": "get-monitoring-export",
+      "name": "🐘 Get Monitoring",
+      "credentials": {"postgres": {"id": "dPjh4Kdb4nIbCTQG", "name": "Postgres account"}}
+    },
+    {
+      "parameters": {"numberInputs": 5},
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [576, 1824],
+      "id": "merge-export-data",
+      "name": "🔀 Merge Export Data"
+    },
+    {
+      "parameters": {
+        "jsCode": "// ═══════════════════════════════════════════════════════════════\n// 📊 Collect data for GDPR Art. 20 export\n// ═══════════════════════════════════════════════════════════════\n\nconst requestData = $('📝 Parse Export Request').first().json;\n\nlet consents = [];\nlet profile = null;\nlet chatHistory = [];\nlet auditLog = [];\nlet monitoringData = [];\n\ntry { consents = $('🐘 Get Consents').all().map(i => i.json); } catch (e) {}\ntry { const profileItems = $('🐘 Get Profile').all(); if (profileItems.length > 0) { profile = profileItems[0].json; } } catch (e) {}\ntry { chatHistory = $('🐘 Get Chat History').all().map(i => i.json); } catch (e) {}\ntry { auditLog = $('🐘 Get Audit Log').all().map(i => i.json); } catch (e) {}\ntry { monitoringData = $('🐘 Get Monitoring').all().map(i => i.json); } catch (e) {}\n\nconst totalRecords = consents.length + (profile ? 1 : 0) + chatHistory.length + auditLog.length + monitoringData.length;\n\nconst exportData = {\n    exportInfo: {\n        sessionId: requestData.session_id,\n        exportedAt: new Date().toISOString(),\n        format: requestData.format,\n        gdprArticle: 'Art. 20 - Right to Data Portability'\n    },\n    personalData: { profile: profile, consents: consents },\n    activityData: { chatHistory: chatHistory, totalMessages: chatHistory.length },\n    technicalData: { monitoring: monitoringData },\n    auditTrail: auditLog,\n    dataCategories: ['Identity data', 'Contact data', 'Consent records', 'Communication history', 'Technical data', 'Monitoring data']\n};\n\nreturn [{\n    json: {\n        success: true,\n        data: exportData,\n        totalRecords: totalRecords,\n        session_id: requestData.session_id,\n        format: requestData.format,\n        domain: requestData.domain,\n        ip_address: requestData.ip_address,\n        user_agent: requestData.user_agent\n    }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [768, 1824],
+      "id": "format-export-data",
+      "name": "📊 Format Export Data"
+    },
+    {
+      "parameters": {
+        "jsCode": "// ═══════════════════════════════════════════════════════════════\n// 📋 Prepare data for Audit Log\n// ═══════════════════════════════════════════════════════════════\n\nconst exportData = $('📊 Format Export Data').first().json;\n\nconst details = JSON.stringify({\n    format: exportData.format,\n    total_records: exportData.totalRecords,\n    gdpr_article: \"Art. 20 - Right to Data Portability\"\n});\n\nreturn [{\n    json: {\n        session_id: exportData.session_id,\n        action: 'data_export',\n        details: details,\n        ip_address: exportData.ip_address,\n        user_agent: exportData.user_agent,\n        domain: exportData.domain,\n        purpose: 'data_portability',\n        legal_basis: 'consent',\n        controller: exportData.domain,\n        export_response: { success: exportData.success, data: exportData.data, totalRecords: exportData.totalRecords }\n    }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [960, 1824],
+      "id": "prepare-audit-export",
+      "name": "📋 Prepare Audit (Export)"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO {{ $('⚙️ CONFIG: Export').first().json.table_gdpr_audit_log }} (\n    session_id, action, details, ip_address, user_agent, domain, purpose, legal_basis, controller, data_categories\n) VALUES (\n    '{{ $json.session_id }}', '{{ $json.action }}', '{{ $json.details.replace(/'/g, \"''\") }}',\n    {{ $json.ip_address ? \"'\" + $json.ip_address + \"'\" : 'NULL' }},\n    {{ $json.user_agent ? \"'\" + $json.user_agent.replace(/'/g, \"''\") + \"'\" : 'NULL' }},\n    '{{ $json.domain }}', '{{ $json.purpose }}', '{{ $json.legal_basis }}', '{{ $json.controller }}',\n    ARRAY['session_id', 'consent_records', 'contact_data', 'chat_history', 'audit_trail', 'monitoring_data']\n) RETURNING id;",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [1152, 1824],
+      "id": "audit-log-export",
+      "name": "📋 Audit Log (Export)",
+      "credentials": {"postgres": {"id": "dPjh4Kdb4nIbCTQG", "name": "Postgres account"}}
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $('📋 Prepare Audit (Export)').first().json.export_response }}",
+        "options": {"responseHeaders": {"entries": [{"name": "X-GDPR-Request", "value": "data-export"}, {"name": "Content-Disposition", "value": "attachment; filename=\"gdpr-export.json\""}]}}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [1344, 1824],
+      "id": "respond-export",
+      "name": "📤 Respond (Export)"
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json.error }}",
+        "options": {"responseCode": "={{ $json.error.status }}"}
+      },
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [48, 1904],
+      "id": "error-response-export",
+      "name": "❌ Error (Export)"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "🌐 Webhook: Consent": {
+      "main": [[{"node": "⚙️ CONFIG: Consent", "type": "main", "index": 0}]]
+    },
+    "⚙️ CONFIG: Consent": {
+      "main": [[{"node": "🔐 Security Check (Consent)", "type": "main", "index": 0}]]
+    },
+    "🔐 Security Check (Consent)": {
+      "main": [[{"node": "❓ Auth Check (Consent)", "type": "main", "index": 0}]]
+    },
+    "❓ Auth Check (Consent)": {
+      "main": [
+        [{"node": "📝 Transform Consent Data", "type": "main", "index": 0}],
+        [{"node": "❌ Error (Consent)", "type": "main", "index": 0}]
+      ]
+    },
+    "📝 Transform Consent Data": {
+      "main": [[{"node": "🐘 Save Consent", "type": "main", "index": 0}]]
+    },
+    "🐘 Save Consent": {
+      "main": [[{"node": "📋 Prepare Audit (Consent)", "type": "main", "index": 0}]]
+    },
+    "📋 Prepare Audit (Consent)": {
+      "main": [[{"node": "📋 Audit Log (Consent)", "type": "main", "index": 0}]]
+    },
+    "📋 Audit Log (Consent)": {
+      "main": [[{"node": "🔍 Check PreChat Data", "type": "main", "index": 0}]]
+    },
+    "🔍 Check PreChat Data": {
+      "main": [[{"node": "✅ Prepare Response (Consent)", "type": "main", "index": 0}]]
+    },
+    "✅ Prepare Response (Consent)": {
+      "main": [[{"node": "📤 Respond (Consent)", "type": "main", "index": 0}]]
+    },
+    "🌐 Webhook: Revoke": {
+      "main": [[{"node": "⚙️ CONFIG: Revoke", "type": "main", "index": 0}]]
+    },
+    "⚙️ CONFIG: Revoke": {
+      "main": [[{"node": "🔐 Security Check (Revoke)", "type": "main", "index": 0}]]
+    },
+    "🔐 Security Check (Revoke)": {
+      "main": [[{"node": "❓ Auth Check (Revoke)", "type": "main", "index": 0}]]
+    },
+    "❓ Auth Check (Revoke)": {
+      "main": [
+        [{"node": "📝 Transform Revoke Data", "type": "main", "index": 0}],
+        [{"node": "❌ Error (Revoke)", "type": "main", "index": 0}]
+      ]
+    },
+    "📝 Transform Revoke Data": {
+      "main": [[{"node": "🐘 Revoke Consent", "type": "main", "index": 0}]]
+    },
+    "🐘 Revoke Consent": {
+      "main": [[{"node": "📋 Prepare Audit (Revoke)", "type": "main", "index": 0}]]
+    },
+    "📋 Prepare Audit (Revoke)": {
+      "main": [[{"node": "📋 Audit Log (Revoke)", "type": "main", "index": 0}]]
+    },
+    "📋 Audit Log (Revoke)": {
+      "main": [[{"node": "✅ Prepare Response (Revoke)", "type": "main", "index": 0}]]
+    },
+    "✅ Prepare Response (Revoke)": {
+      "main": [[{"node": "📤 Respond (Revoke)", "type": "main", "index": 0}]]
+    },
+    "🌐 Webhook: Data Access": {
+      "main": [[{"node": "⚙️ CONFIG: Data Access", "type": "main", "index": 0}]]
+    },
+    "⚙️ CONFIG: Data Access": {
+      "main": [[{"node": "🔐 Security Check (Access)", "type": "main", "index": 0}]]
+    },
+    "🔐 Security Check (Access)": {
+      "main": [[{"node": "❓ Auth Check (Access)", "type": "main", "index": 0}]]
+    },
+    "❓ Auth Check (Access)": {
+      "main": [
+        [{"node": "📝 Parse Access Request", "type": "main", "index": 0}],
+        [{"node": "❌ Error (Access)", "type": "main", "index": 0}]
+      ]
+    },
+    "📝 Parse Access Request": {
+      "main": [[{"node": "🐘 Get User Data", "type": "main", "index": 0}]]
+    },
+    "🐘 Get User Data": {
+      "main": [[{"node": "📊 Format Access Response", "type": "main", "index": 0}]]
+    },
+    "📊 Format Access Response": {
+      "main": [[{"node": "📋 Audit Log (Access)", "type": "main", "index": 0}]]
+    },
+    "📋 Audit Log (Access)": {
+      "main": [[{"node": "📤 Respond (Access)", "type": "main", "index": 0}]]
+    },
+    "🌐 Webhook: Delete": {
+      "main": [[{"node": "⚙️ CONFIG: Delete", "type": "main", "index": 0}]]
+    },
+    "⚙️ CONFIG: Delete": {
+      "main": [[{"node": "🔐 Security Check (Delete)", "type": "main", "index": 0}]]
+    },
+    "🔐 Security Check (Delete)": {
+      "main": [[{"node": "❓ Auth Check (Delete)", "type": "main", "index": 0}]]
+    },
+    "❓ Auth Check (Delete)": {
+      "main": [
+        [{"node": "📝 Transform Delete Data", "type": "main", "index": 0}],
+        [{"node": "❌ Error (Delete)", "type": "main", "index": 0}]
+      ]
+    },
+    "📝 Transform Delete Data": {
+      "main": [[{"node": "🐘 Delete from PostgreSQL", "type": "main", "index": 0}]]
+    },
+    "🐘 Delete from PostgreSQL": {
+      "main": [[{"node": "📋 Prepare Audit (Delete)", "type": "main", "index": 0}]]
+    },
+    "📋 Prepare Audit (Delete)": {
+      "main": [[{"node": "📋 Audit Log (Delete)", "type": "main", "index": 0}]]
+    },
+    "📋 Audit Log (Delete)": {
+      "main": [[{"node": "✅ Prepare Response (Delete)", "type": "main", "index": 0}]]
+    },
+    "✅ Prepare Response (Delete)": {
+      "main": [[{"node": "📤 Respond (Delete)", "type": "main", "index": 0}]]
+    },
+    "🌐 Webhook: PreChat": {
+      "main": [[{"node": "⚙️ CONFIG: PreChat", "type": "main", "index": 0}]]
+    },
+    "⚙️ CONFIG: PreChat": {
+      "main": [[{"node": "🔐 Security Check (PreChat)", "type": "main", "index": 0}]]
+    },
+    "🔐 Security Check (PreChat)": {
+      "main": [[{"node": "❓ Auth Check (PreChat)", "type": "main", "index": 0}]]
+    },
+    "❓ Auth Check (PreChat)": {
+      "main": [
+        [{"node": "📝 Transform PreChat Data", "type": "main", "index": 0}],
+        [{"node": "❌ Error (PreChat)", "type": "main", "index": 0}]
+      ]
+    },
+    "📝 Transform PreChat Data": {
+      "main": [[{"node": "🐘 Save PreChat Data", "type": "main", "index": 0}]]
+    },
+    "🐘 Save PreChat Data": {
+      "main": [[{"node": "📋 Prepare Audit (PreChat)", "type": "main", "index": 0}]]
+    },
+    "📋 Prepare Audit (PreChat)": {
+      "main": [[{"node": "📋 Audit Log (PreChat)", "type": "main", "index": 0}]]
+    },
+    "📋 Audit Log (PreChat)": {
+      "main": [[{"node": "✅ Prepare Response (PreChat)", "type": "main", "index": 0}]]
+    },
+    "✅ Prepare Response (PreChat)": {
+      "main": [[{"node": "📤 Respond (PreChat)", "type": "main", "index": 0}]]
+    },
+    "🌐 Webhook: Export": {
+      "main": [[{"node": "⚙️ CONFIG: Export", "type": "main", "index": 0}]]
+    },
+    "⚙️ CONFIG: Export": {
+      "main": [[{"node": "🔐 Security Check (Export)", "type": "main", "index": 0}]]
+    },
+    "🔐 Security Check (Export)": {
+      "main": [[{"node": "❓ Auth Check (Export)", "type": "main", "index": 0}]]
+    },
+    "❓ Auth Check (Export)": {
+      "main": [
+        [{"node": "📝 Parse Export Request", "type": "main", "index": 0}],
+        [{"node": "❌ Error (Export)", "type": "main", "index": 0}]
+      ]
+    },
+    "📝 Parse Export Request": {
+      "main": [[
+        {"node": "🐘 Get Consents", "type": "main", "index": 0},
+        {"node": "🐘 Get Profile", "type": "main", "index": 0},
+        {"node": "🐘 Get Chat History", "type": "main", "index": 0},
+        {"node": "🐘 Get Audit Log", "type": "main", "index": 0},
+        {"node": "🐘 Get Monitoring", "type": "main", "index": 0}
+      ]]
+    },
+    "🐘 Get Consents": {
+      "main": [[{"node": "🔀 Merge Export Data", "type": "main", "index": 0}]]
+    },
+    "🐘 Get Profile": {
+      "main": [[{"node": "🔀 Merge Export Data", "type": "main", "index": 1}]]
+    },
+    "🐘 Get Chat History": {
+      "main": [[{"node": "🔀 Merge Export Data", "type": "main", "index": 2}]]
+    },
+    "🐘 Get Audit Log": {
+      "main": [[{"node": "🔀 Merge Export Data", "type": "main", "index": 3}]]
+    },
+    "🐘 Get Monitoring": {
+      "main": [[{"node": "🔀 Merge Export Data", "type": "main", "index": 4}]]
+    },
+    "🔀 Merge Export Data": {
+      "main": [[{"node": "📊 Format Export Data", "type": "main", "index": 0}]]
+    },
+    "📊 Format Export Data": {
+      "main": [[{"node": "📋 Prepare Audit (Export)", "type": "main", "index": 0}]]
+    },
+    "📋 Prepare Audit (Export)": {
+      "main": [[{"node": "📋 Audit Log (Export)", "type": "main", "index": 0}]]
+    },
+    "📋 Audit Log (Export)": {
+      "main": [[{"node": "📤 Respond (Export)", "type": "main", "index": 0}]]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "production-en-v1",
+  "meta": {
+    "instanceId": "9a2a948e1b1119e76dce477f4f08641c41898f344f4216cb90098437b1dcaf00"
+  },
+  "id": "gdpr-consent-management-en",
+  "tags": []
+}
